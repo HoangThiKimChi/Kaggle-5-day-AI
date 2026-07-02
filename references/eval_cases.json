@@ -1,0 +1,131 @@
+[
+  {
+    "case_id": "classify_and_guide_opinion_cam14_t3",
+    "essay_type": "opinion",
+    "input": "Some people say that music is a good way of bringing people of different cultures and ages together. To what extent do you agree or disagree with this opinion?",
+    "expected_tool_calls": [
+      {
+        "tool": "classify_essay_type",
+        "args": { "prompt": "<input>" }
+      },
+      {
+        "tool": "guide_essay_section",
+        "args": {
+          "section": "introduction",
+          "essay_type": "opinion",
+          "context": { "prompt": "<input>", "level": "B1" }
+        }
+      }
+    ],
+    "expected_output_format": {
+      "essay_type": "opinion",
+      "confidence": "high",
+      "guide_has_keys": ["instructions", "template", "example", "useful_phrases", "common_errors", "checklist", "next_section"]
+    },
+    "rubric": [
+      "essay_type trả về đúng 'opinion'",
+      "explanation của classify viết bằng tiếng Việt, có nhắc cụm từ khóa nhận diện (agree/disagree/to what extent)",
+      "instructions của guide_essay_section là các bước rõ ràng bằng tiếng Việt",
+      "example là câu tiếng Anh hoàn chỉnh, liên quan trực tiếp đến chủ đề âm nhạc/văn hóa trong đề bài",
+      "next_section trả về 'body1'",
+      "không bịa thêm thông tin ngoài phạm vi template/brainstorm reference đã cung cấp"
+    ]
+  },
+  {
+    "case_id": "classify_discussion_cam14_t1",
+    "essay_type": "discussion",
+    "input": "Some people believe that it is best to accept a bad situation, such as an unsatisfactory job or shortage of money. Others argue that it is better to try and improve such situations. Discuss both these views and give your own opinion.",
+    "expected_tool_calls": [
+      {
+        "tool": "classify_essay_type",
+        "args": { "prompt": "<input>" }
+      }
+    ],
+    "expected_output_format": {
+      "essay_type": "discussion",
+      "confidence": "high"
+    },
+    "rubric": [
+      "essay_type trả về đúng 'discussion'",
+      "explanation nhắc đến cụm từ khóa 'discuss both these views'",
+      "explanation phân biệt rõ discussion khác opinion (phải trình bày 2 phía trước khi nêu ý kiến, không chỉ agree/disagree)"
+    ]
+  },
+  {
+    "case_id": "classify_adv_dis_cam14_food",
+    "essay_type": "adv_dis",
+    "input": "In many countries nowadays, consumers can go to a supermarket and buy food produced all over the world. Do you think this is a positive or negative development?",
+    "expected_tool_calls": [
+      {
+        "tool": "classify_essay_type",
+        "args": { "prompt": "<input>" }
+      }
+    ],
+    "expected_output_format": {
+      "essay_type": "adv_dis",
+      "confidence": "high"
+    },
+    "rubric": [
+      "essay_type trả về đúng 'adv_dis'",
+      "explanation nhắc đến cụm 'positive or negative development' là dấu hiệu nhận diện",
+      "explanation giải thích đúng cấu trúc: Body 1 ưu điểm, Body 2 nhược điểm"
+    ]
+  },
+  {
+    "case_id": "classify_and_paraphrase_problem_solution_traffic",
+    "essay_type": "problem_solution",
+    "input": "Traffic congestion is a major problem in many cities. What are the causes of this problem, and what measures could be taken to reduce it?",
+    "expected_tool_calls": [
+      {
+        "tool": "classify_essay_type",
+        "args": { "prompt": "<input>" }
+      },
+      {
+        "tool": "paraphrase_prompt",
+        "args": { "prompt": "<input>", "level": "B1" }
+      }
+    ],
+    "expected_output_format": {
+      "essay_type": "problem_solution",
+      "confidence": "high",
+      "paraphrases_count": 3
+    },
+    "rubric": [
+      "essay_type trả về đúng 'problem_solution'",
+      "explanation nhắc 'what are the causes' và 'what measures' là dấu hiệu nhận diện",
+      "3 paraphrases không copy nguyên văn quá 2 từ liên tiếp từ đề gốc",
+      "mỗi paraphrase giữ đúng nghĩa: vẫn hỏi về nguyên nhân VÀ giải pháp cho traffic congestion",
+      "technique của mỗi paraphrase khác nhau (không lặp lại cùng 1 kỹ thuật)"
+    ]
+  },
+  {
+    "case_id": "classify_and_enrich_two_part_self_employed",
+    "essay_type": "two_part_question",
+    "input": "Nowadays many people choose to be self-employed, rather than to work for a company or organisation. Why might this be the case? What could be the disadvantages of being self-employed?",
+    "expected_tool_calls": [
+      {
+        "tool": "classify_essay_type",
+        "args": { "prompt": "<input>" }
+      },
+      {
+        "tool": "enrich_vocabulary",
+        "args": {
+          "text": "Working for yourself is good because you can make your own decisions. But it is also bad because you have no fixed salary.",
+          "topic": "work"
+        }
+      }
+    ],
+    "expected_output_format": {
+      "essay_type": "two_part_question",
+      "confidence": "high",
+      "enrich_has_keys": ["overused_words", "suggestions", "topic_words", "collocations", "improved_text"]
+    },
+    "rubric": [
+      "essay_type trả về đúng 'two_part_question' (nhờ 2 dấu '?' riêng biệt trong đề)",
+      "explanation giải thích rõ đề có 2 câu hỏi cần trả lời riêng biệt, mỗi câu 1 đoạn thân bài",
+      "enrich_vocabulary phát hiện từ 'good' và 'bad' là overused_words",
+      "suggestions đưa ra từ đồng nghĩa phù hợp topic 'work' (ví dụ: beneficial, advantageous thay cho good)",
+      "improved_text vẫn giữ nguyên ý nghĩa gốc, chỉ thay từ vựng"
+    ]
+  }
+]
