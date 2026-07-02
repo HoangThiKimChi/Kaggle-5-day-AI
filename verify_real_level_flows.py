@@ -1,9 +1,8 @@
 """
 verify_real_level_flows.py
 ==========================
-Chạy thử nghiệm E2E (4 turns, 6 API requests thật)
-Patch động để chạy bằng model 'gemini-2.5-flash' nhằm tránh lỗi 503 của flash-lite.
-Giữ nguyên file agent.py và tools.py gốc dùng flash-lite.
+Chạy thử nghiệm E2E thật (4 turns, 6 API requests thật)
+Sử dụng chính thức model 'gemini-2.5-flash-lite' từ agent.py và tools.py.
 
 Chạy:
     source ~/.zshrc && python3 verify_real_level_flows.py
@@ -24,65 +23,16 @@ if not API_KEY:
     sys.exit(1)
 os.environ.setdefault("GOOGLE_API_KEY", API_KEY)
 
-# ── PATCH ĐỘNG MODEL SANG GEMINI-2.5-FLASH ────────────────────────────────────
-import agent
-import tools
-
-# Patch agent model
-print("🔧 Patching agent model sang gemini-2.5-flash...")
-agent.root_agent.model = "gemini-2.5-flash"
-
-# Patch tools _call_gemini function to use gemini-2.5-flash instead of flash-lite
-orig_call_gemini = tools._call_gemini
-
-def patched_call_gemini(user_prompt: str, system_instruction: str = "") -> str:
-    # We copy the exact same logic of _call_gemini but force model="gemini-2.5-flash"
-    import json
-    from google import genai
-    from google.genai import types
-    api_key = os.environ.get("GEMINI_API_KEY", "")
-    if not api_key:
-        return ""
-    client = genai.Client(api_key=api_key)
-    full_prompt = f"{system_instruction}\n\n{user_prompt}" if system_instruction else user_prompt
-    try:
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",  # Forced to stable full model
-            contents=full_prompt,
-            config=types.GenerateContentConfig(
-                response_mime_type="application/json",
-            ),
-        )
-        if response.text:
-            return response.text
-        if response.candidates:
-            cand = response.candidates[0]
-            if cand.content and cand.content.parts:
-                texts = [
-                    p.text
-                    for p in cand.content.parts
-                    if p.text and not getattr(p, "thought", False)
-                ]
-                if texts:
-                    return "".join(texts)
-        return ""
-    except Exception as exc:
-        return json.dumps({"_api_error": type(exc).__name__, "_api_message": str(exc)[:300]})
-
-tools._call_gemini = patched_call_gemini
-print("🔧 Patching tools.py model call sang gemini-2.5-flash...")
-
-# ─────────────────────────────────────────────────────────────────────────────
 from app import run_turn_structured, create_runner
 
 def run_turn_with_delay(runner, session_id, user_id, prefixed_msg):
-    print("⏳ Đang gửi request tới Gemini...")
+    print("⏳ Đang gửi request tới Gemini (gemini-2.5-flash-lite)...")
     result = run_turn_structured(runner, session_id, user_id, prefixed_msg)
     return result
 
 def run_session_simulation(level: str, turns: list[str]) -> None:
     print("\n" + "=" * 80)
-    print(f"VERIFY REAL API: LEVEL {level} FLOW (Using gemini-2.5-flash)")
+    print(f"VERIFY REAL API: LEVEL {level} FLOW (gemini-2.5-flash-lite)")
     print("=" * 80)
 
     runner = create_runner()
