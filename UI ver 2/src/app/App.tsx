@@ -964,7 +964,7 @@ export default function App() {
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
-            {messages.map((msg) => (
+            {messages.map((msg, idx) => (
               <div
                 key={msg.id}
                 className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : "flex-row"}`}
@@ -978,7 +978,7 @@ export default function App() {
                   </div>
                 )}
                 <div
-                  className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line"
+                  className="max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line flex flex-col"
                   style={{
                     background:
                       msg.role === "assistant" ? "var(--card)" : "var(--primary)",
@@ -989,7 +989,66 @@ export default function App() {
                       msg.role === "assistant" ? "4px 18px 18px 18px" : "18px 4px 18px 18px",
                   }}
                 >
-                  {formatMessage(msg.content)}
+                  <div className="w-full">{formatMessage(msg.content)}</div>
+                  
+                  {/* Option buttons inside the agent's bubble (only for the last assistant message) */}
+                  {!isTyping && msg.role === "assistant" && idx === messages.length - 1 && essayType !== null && (() => {
+                    const isCorrectSentence = 
+                      msg.content.includes("hoàn toàn chính xác") ||
+                      msg.content.includes("không có lỗi sai nào") ||
+                      msg.content.includes("không mắc bất kỳ lỗi") ||
+                      msg.content.includes("không mắc lỗi nào") ||
+                      msg.content.includes("Chúc mừng bạn!");
+
+                    const isIncorrectSentence = 
+                      msg.content.includes("~~") ||
+                      msg.content.includes("lỗi ngữ pháp") ||
+                      msg.content.includes("lỗi chính tả") ||
+                      msg.content.includes("lỗi từ vựng") ||
+                      msg.content.includes("sửa lại") ||
+                      msg.content.includes("cải thiện") ||
+                      msg.content.includes("nâng band");
+
+                    if (isCorrectSentence) {
+                      return (
+                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/80 w-full">
+                          <button
+                            onClick={() => handleSend("Giải thích chi tiết câu này giúp mình.")}
+                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                          >
+                            📖 Giải thích chi tiết câu này
+                          </button>
+                          <button
+                            onClick={() => handleSend("Hãy giúp mình cải thiện câu này để đạt band cao hơn.")}
+                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
+                          >
+                            🚀 Cải thiện câu này tốt hơn
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    if (isIncorrectSentence) {
+                      return (
+                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/80 w-full">
+                          <button
+                            onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
+                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
+                          >
+                            🚀 Có, giúp tôi nâng band câu này
+                          </button>
+                          <button
+                            onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
+                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-secondary border-border text-muted-foreground"
+                          >
+                            ➡️ Không, chuyển sang bước tiếp theo
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    return null;
+                  })()}
                 </div>
               </div>
             ))}
@@ -1028,102 +1087,9 @@ export default function App() {
 
           {/* Input */}
           <div
-            className="shrink-0 p-4 border-t flex flex-col gap-3"
+            className="shrink-0 p-4 border-t"
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
-            {/* Quick Actions Option Buttons */}
-            {!isTyping && messages.length > 1 && essayType !== null && (() => {
-              const lastMsg = messages[messages.length - 1];
-              if (!lastMsg || lastMsg.role !== "assistant") return null;
-
-              const isCorrectSentence = 
-                lastMsg.content.includes("hoàn toàn chính xác") ||
-                lastMsg.content.includes("không có lỗi sai nào") ||
-                lastMsg.content.includes("không mắc bất kỳ lỗi") ||
-                lastMsg.content.includes("không mắc lỗi nào") ||
-                lastMsg.content.includes("Chúc mừng bạn!");
-
-              const isIncorrectSentence = 
-                lastMsg.content.includes("~~") ||
-                lastMsg.content.includes("lỗi ngữ pháp") ||
-                lastMsg.content.includes("lỗi chính tả") ||
-                lastMsg.content.includes("lỗi từ vựng") ||
-                lastMsg.content.includes("sửa lại") ||
-                lastMsg.content.includes("cải thiện") ||
-                lastMsg.content.includes("nâng band");
-
-              if (isCorrectSentence) {
-                return (
-                  <div className="flex flex-wrap gap-2 animate-fade-in">
-                    <button
-                      onClick={() => handleSend("Giải thích chi tiết câu này giúp mình.")}
-                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                      style={{
-                        background: "rgba(59, 130, 246, 0.08)",
-                        borderColor: "rgba(59, 130, 246, 0.3)",
-                        color: "rgb(29, 78, 216)"
-                      }}
-                    >
-                      📖 Giải thích chi tiết câu này
-                    </button>
-                    <button
-                      onClick={() => handleSend("Hãy giúp mình cải thiện câu này để đạt band cao hơn.")}
-                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                      style={{
-                        background: "rgba(34, 197, 94, 0.08)",
-                        borderColor: "rgba(34, 197, 94, 0.3)",
-                        color: "rgb(21, 128, 61)"
-                      }}
-                    >
-                      🚀 Cải thiện câu này tốt hơn
-                    </button>
-                    <button
-                      onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
-                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                      style={{
-                        background: "var(--secondary)",
-                        borderColor: "var(--border)",
-                        color: "var(--muted-foreground)"
-                      }}
-                    >
-                      ➡️ Không, chuyển sang bước tiếp theo
-                    </button>
-                  </div>
-                );
-              }
-
-              if (isIncorrectSentence) {
-                return (
-                  <div className="flex flex-wrap gap-2 animate-fade-in">
-                    <button
-                      onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
-                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                      style={{
-                        background: "rgba(34, 197, 94, 0.08)",
-                        borderColor: "rgba(34, 197, 94, 0.3)",
-                        color: "rgb(21, 128, 61)"
-                      }}
-                    >
-                      🚀 Có, giúp tôi nâng band câu này
-                    </button>
-                    <button
-                      onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
-                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                      style={{
-                        background: "var(--secondary)",
-                        borderColor: "var(--border)",
-                        color: "var(--muted-foreground)"
-                      }}
-                    >
-                      ➡️ Không, chuyển sang bước tiếp theo
-                    </button>
-                  </div>
-                );
-              }
-
-              return null;
-            })()}
-
             <div
               className="flex items-end gap-3 rounded-xl p-3"
               style={{ background: "var(--input-background)", border: "1px solid var(--border)" }}

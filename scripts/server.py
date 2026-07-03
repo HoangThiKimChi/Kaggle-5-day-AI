@@ -125,7 +125,7 @@ async def _run_turn_structured_real(
     msg = genai_types.Content(
         role="user", parts=[genai_types.Part(text=message)]
     )
-    text_chunks: list[str] = []
+    agent_text = ""
     tool_calls: list[dict] = []
 
     async for event in runner.run_async(
@@ -133,12 +133,20 @@ async def _run_turn_structured_real(
     ):
         if not (event.content and event.content.parts):
             continue
+            
+        # Overwrite agent_text with the cumulative text parts from the latest event to prevent duplicate prints
+        chunks = []
         for part in event.content.parts:
             if hasattr(part, "text") and part.text and not getattr(part, "thought", False):
-                text_chunks.append(part.text)
+                chunks.append(part.text)
+        agent_text = "".join(chunks)
+
+        for part in event.content.parts:
             if hasattr(part, "function_call") and part.function_call:
                 fc = part.function_call
-                tool_calls.append({"tool": fc.name, "args": dict(fc.args) if fc.args else {}, "result": None})
+                # Avoid inserting duplicate tool calls
+                if not any(tc["tool"] == fc.name for tc in tool_calls):
+                    tool_calls.append({"tool": fc.name, "args": dict(fc.args) if fc.args else {}, "result": None})
             if hasattr(part, "function_response") and part.function_response:
                 fr = part.function_response
                 for tc in reversed(tool_calls):
@@ -146,9 +154,10 @@ async def _run_turn_structured_real(
                         tc["result"] = dict(fr.response) if fr.response else {}
                         break
                 else:
-                    tool_calls.append({"tool": fr.name, "args": {}, "result": dict(fr.response) if fr.response else {}})
+                    # Avoid duplicate response tool logs
+                    if not any(tc["tool"] == fr.name and tc["result"] is not None for tc in tool_calls):
+                        tool_calls.append({"tool": fr.name, "args": {}, "result": dict(fr.response) if fr.response else {}})
 
-    agent_text = "".join(text_chunks)
     if not agent_text and not tool_calls:
         agent_text = "_(Agent không trả lời — vui lòng thử lại hoặc diễn đạt lại câu hỏi.)_"
 
