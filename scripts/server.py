@@ -202,6 +202,15 @@ def evaluate_endpoint(req: EvaluateRequest):
 def health_endpoint():
     return {"status": "healthy"}
 
+@app.get("/")
+def index_endpoint():
+    return {
+        "status": "healthy",
+        "service": "IELTS Writing Coach Backend",
+        "description": "FastAPI AI Agent endpoints are ready under /api/chat and /api/evaluate"
+    }
+
+
 
 if __name__ == "__main__":
     import uvicorn
