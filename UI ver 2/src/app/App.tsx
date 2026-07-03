@@ -14,6 +14,8 @@ import {
   Sparkles,
   Target,
   Layers,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 type Level = "A2" | "B1";
@@ -63,10 +65,13 @@ const WELCOME_MESSAGE: Message = {
 };
 
 function formatMessage(content: string) {
-  const parts = content.split(/(\*\*[^*]+\*\*)/g);
+  const parts = content.split(/(\*\*[^*]+\*\*|~~[^~]+~~)/g);
   return parts.map((part, i) => {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith("~~") && part.endsWith("~~")) {
+      return <del key={i} className="line-through text-red-500 font-semibold">{part.slice(2, -2)}</del>;
     }
     return <span key={i}>{part}</span>;
   });
@@ -543,6 +548,81 @@ export default function App() {
     });
   }
 
+  // Helper to detect if a specific step is completed based on the AI feedback text
+  function isStepCompleted(stepText: string): boolean {
+    const markers = [
+      "bạn đã có câu",
+      "bạn đã viết",
+      "rất tốt rồi",
+      "đã hoàn thành",
+      "tốt rồi",
+      "chính xác rồi",
+      "đạt yêu cầu"
+    ];
+    const text = stepText.toLowerCase();
+    return markers.some(m => text.includes(m));
+  }
+
+  // Helper to extract all struck-through words from a message content string
+  function extractStruckWords(content: string): string[] {
+    const regex = /~~([^~]+)~~/g;
+    const words: string[] = [];
+    let match;
+    while ((match = regex.exec(content)) !== null) {
+      words.push(match[1].trim().toLowerCase());
+    }
+    return words;
+  }
+
+  // Get current session errors from the assistant messages
+  const currentErrors = messages.flatMap((m) => {
+    if (m.role !== "assistant") return [];
+    return extractStruckWords(m.content);
+  });
+  
+  const uniqueCurrentErrors = Array.from(new Set(currentErrors));
+
+  // Check error history in both current chat and past Supabase sessions
+  function checkErrorHistory(errorWord: string): { repeated: boolean; count: number } {
+    let count = 0;
+    
+    // 1. Search in current chat history
+    messages.forEach((m) => {
+      if (m.role === "assistant") {
+        const words = extractStruckWords(m.content);
+        if (words.includes(errorWord.toLowerCase())) {
+          count++;
+        }
+      }
+    });
+
+    // 2. Search in past user sessions (from Supabase DB!)
+    userSessions.forEach((s) => {
+      if (s.session_id !== sessionId && s.messages) {
+        try {
+          const msgs = typeof s.messages === "string" ? JSON.parse(s.messages) : s.messages;
+          if (Array.isArray(msgs)) {
+            msgs.forEach((m: any) => {
+              if (m.role === "assistant" && m.content) {
+                const words = extractStruckWords(m.content);
+                if (words.includes(errorWord.toLowerCase())) {
+                  count++;
+                }
+              }
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    });
+
+    return {
+      repeated: count > 1,
+      count
+    };
+  }
+
   const progressPct = (completedSections.size / SECTIONS.length) * 100;
 
   return (
@@ -1001,28 +1081,84 @@ export default function App() {
                   ))}
                 </div>
 
-                {/* Dynamic Instructions */}
-                {instructions.length > 0 ? (
-                  <div className="flex flex-col gap-2 mb-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Các bước viết phần {activeSection}:</p>
-                    <div className="flex flex-col gap-1.5">
-                      {instructions.map((step, idx) => (
-                        <div key={idx} className="text-xs leading-relaxed p-2.5 rounded-lg bg-secondary text-foreground">
-                          {idx + 1}. {formatMessage(step)}
-                        </div>
-                      ))}
+                {/* Checklist yêu cầu cần đạt (Instructions) */}
+                <div className="flex flex-col gap-2 mb-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Checklist yêu cầu cần đạt ({activeSection}):</p>
+                  {instructions.length > 0 ? (
+                    <div className="flex flex-col gap-2">
+                      {instructions.map((step, idx) => {
+                        const completed = isStepCompleted(step);
+                        return (
+                          <div 
+                            key={idx} 
+                            className="text-xs leading-relaxed p-3 rounded-lg border transition-all flex items-start gap-2.5"
+                            style={{
+                              background: completed ? "rgba(34, 197, 94, 0.05)" : "var(--secondary)",
+                              borderColor: completed ? "rgba(34, 197, 94, 0.2)" : "var(--border)",
+                              color: "var(--foreground)"
+                            }}
+                          >
+                            {completed ? (
+                              <CheckCircle2 size={15} className="text-green-500 mt-0.5 shrink-0" />
+                            ) : (
+                              <span className="w-4 h-4 rounded-full bg-muted text-[9px] font-bold flex items-center justify-center text-muted-foreground mt-0.5 shrink-0">
+                                {idx + 1}
+                              </span>
+                            )}
+                            <div className="flex-1">
+                              {formatMessage(step)}
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  </div>
-                ) : (
-                  <div
-                    className="text-xs leading-relaxed whitespace-pre-line rounded-xl p-4 mb-4"
-                    style={{
-                      background: "var(--secondary)",
-                      color: "var(--foreground)",
-                      lineHeight: 1.8,
-                    }}
-                  >
-                    {formatMessage(GUIDANCE_CONTENT[activeSection])}
+                  ) : (
+                    <div
+                      className="text-xs leading-relaxed whitespace-pre-line rounded-xl p-4"
+                      style={{
+                        background: "var(--secondary)",
+                        color: "var(--foreground)",
+                        lineHeight: 1.8,
+                      }}
+                    >
+                      {formatMessage(GUIDANCE_CONTENT[activeSection])}
+                    </div>
+                  )}
+                </div>
+
+                {/* Các lỗi đã gặp & Đối chiếu quá khứ */}
+                {uniqueCurrentErrors.length > 0 && (
+                  <div className="mb-4 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-red-500 mb-3 flex items-center gap-1.5">
+                      <AlertCircle size={13} />
+                      Các lỗi đã gặp & Đối chiếu quá khứ
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {uniqueCurrentErrors.map((errWord, idx) => {
+                        const hist = checkErrorHistory(errWord);
+                        return (
+                          <div key={idx} className="flex flex-col gap-1 p-2.5 rounded-lg border border-red-500/10 bg-card">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-xs font-mono font-semibold line-through text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded">
+                                {errWord}
+                              </span>
+                              {hist.repeated ? (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 font-bold border border-amber-500/20">
+                                  ⚠️ Lặp lại lỗi cũ ({hist.count} lần trước)
+                                </span>
+                              ) : (
+                                <span className="text-[9px] px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-500 font-medium">
+                                  Lỗi mới phát hiện
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              Hãy kiểm tra lại cách viết hoặc lỗi ngữ pháp của từ này trong bài viết của bạn.
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
@@ -1055,7 +1191,7 @@ export default function App() {
                           <button
                             key={idx}
                             onClick={() => toggleChecklistItem(item)}
-                            className="flex items-start gap-2.5 text-xs text-left w-full"
+                            className="flex items-start gap-2.5 text-xs text-left w-full cursor-pointer"
                           >
                             {checked ? (
                               <CheckSquare size={13} className="text-primary mt-0.5 shrink-0" />
