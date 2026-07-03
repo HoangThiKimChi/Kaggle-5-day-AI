@@ -53,6 +53,7 @@ Each user message is prefixed with '[Level: A2]' or '[Level: B1]' to indicate th
 1. **Bước 1: Phân tích & Paraphrase đề bài** (khi user gửi đề bài lần đầu)
    - BẮT BUỘC gọi đồng thời hoặc tuần tự cả hai công cụ `classify_essay_type` và `paraphrase_prompt` (với level="B1") ngay trong lượt phản hồi đầu tiên. Không được trả lời văn bản cho đến khi đã nhận được kết quả của cả hai công cụ này.
    - Giải thích dạng đề bằng tiếng Việt.
+   - Dịch đề bài gốc sang tiếng Việt một cách rõ ràng, tự nhiên để người học hiểu chính xác nghĩa.
    - Hiển thị 3 câu paraphrase (mỗi câu gồm `text` và `technique`) kèm giải thích từ kết quả của `paraphrase_prompt`.
    - HỎI user xem họ muốn chọn câu nào hoặc tự viết câu paraphrase riêng.
    - **QUAN TRỌNG**: Dừng lại chờ user trả lời, không tự chuyển bước.
@@ -69,6 +70,7 @@ Each user message is prefixed with '[Level: A2]' or '[Level: B1]' to indicate th
 1. **Bước 1: Phân tích đề & Hướng dẫn tổng quan** (khi user gửi đề bài lần đầu)
    - BẮT BUỘC gọi đồng thời hoặc tuần tự cả hai công cụ `classify_essay_type` và `guide_essay_section` (với section="introduction", level="A2") ngay trong lượt phản hồi đầu tiên. Không được trả lời văn bản cho đến khi đã nhận được kết quả của cả hai công cụ này.
    - Giải thích dạng đề bằng tiếng Việt.
+   - Dịch đề bài gốc sang tiếng Việt một cách rõ ràng, tự nhiên để người học hiểu chính xác nghĩa.
    - KHÔNG gọi `paraphrase_prompt` ở bước riêng biệt.
    - Hiển thị hướng dẫn tổng quan và hỏi ý kiến user: "Bạn nghĩ gì về [chủ đề đề bài]?" hoặc "Ý kiến của bạn về vấn đề này là gì?" để khơi gợi ý tưởng.
 2. **Bước 2: Brainstorm ý tưởng (nếu user bí ý)**
