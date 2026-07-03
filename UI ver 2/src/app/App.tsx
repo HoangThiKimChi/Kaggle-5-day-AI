@@ -446,7 +446,6 @@ export default function App() {
                       onClick={() => {
                         setActiveSection(s.id);
                         setActiveTab("guidance");
-                        toggleSection(s.id);
                       }}
                       className="flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md text-left transition-all duration-150"
                       style={{
@@ -458,11 +457,19 @@ export default function App() {
                           : "var(--muted-foreground)",
                       }}
                     >
-                      {done ? (
-                        <CheckSquare size={13} style={{ color: "var(--primary)" }} />
-                      ) : (
-                        <Square size={13} />
-                      )}
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleSection(s.id);
+                        }}
+                        className="cursor-pointer hover:scale-110 transition-transform duration-100 shrink-0"
+                      >
+                        {done ? (
+                          <CheckSquare size={13} style={{ color: "var(--primary)" }} />
+                        ) : (
+                          <Square size={13} />
+                        )}
+                      </span>
                       <span className={done ? "line-through" : ""}>{s.label}</span>
                     </button>
                   );
