@@ -709,8 +709,26 @@ def _render_essay_tab() -> None:
         # "Xong phần này" button — only show for current in-progress section
         if status == "in_progress" and draft.strip():
             if st.button(f"✅ Xong phần {label}", key=f"done_{sec}"):
-                # Prepare message to the agent with the user's draft
-                user_msg = f"Tôi đã viết xong phần {label}. Đây là nội dung của tôi:\n\"{draft.strip()}\"\n\nHãy nhận xét ngắn gọn và hướng dẫn tôi viết phần tiếp theo."
+                # Determine the next section key and construct an explicit instruction
+                idx = SECTIONS.index(sec)
+                if idx + 1 < len(SECTIONS):
+                    next_sec = SECTIONS[idx + 1]
+                    next_label = SECTION_LABELS[next_sec]
+                    user_msg = (
+                        f"Tôi đã viết xong phần {label} (khóa '{sec}'). "
+                        f"Đây là nội dung của tôi:\n\"{draft.strip()}\"\n\n"
+                        f"Hãy nhận xét ngắn gọn bài viết của tôi bằng tiếng Việt. "
+                        f"Sau đó, BẮT BUỘC gọi công cụ guide_essay_section với section='{next_sec}' "
+                        f"và essay_type='{st.session_state.get('essay_type')}' để hiển thị hướng dẫn phần tiếp theo ({next_label})."
+                    )
+                else:
+                    user_msg = (
+                        f"Tôi đã viết xong phần {label} (khóa '{sec}'). "
+                        f"Đây là nội dung của tôi:\n\"{draft.strip()}\"\n\n"
+                        f"Hãy nhận xét ngắn gọn toàn bộ bài viết hoàn chỉnh bằng tiếng Việt. "
+                        f"Không cần gọi thêm công cụ guide_essay_section nữa."
+                    )
+
                 st.session_state["messages"].append({"role": "user", "content": user_msg})
                 st.session_state["last_user_msg"] = user_msg
                 st.session_state["pending_retry"] = False
