@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { supabase } from "../lib/supabase";
 import {
   BookOpen,
   MessageCircle,
@@ -72,7 +73,19 @@ function formatMessage(content: string) {
 }
 
 export default function App() {
-  const [sessionId] = useState(() => Math.random().toString(36).substring(7));
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(true);
+  const [authError, setAuthError] = useState("");
+  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
+
+  const [userSessions, setUserSessions] = useState<any[]>([]);
+  const [activeSessionDbId, setActiveSessionDbId] = useState<string | null>(null);
+  const [sessionId, setSessionId] = useState(() => Math.random().toString(36).substring(7));
   const [essayType, setEssayType] = useState<EssayType | null>(null);
   const [level, setLevel] = useState<Level>("B1");
   const [completedSections, setCompletedSections] = useState<Set<Section>>(new Set());
@@ -100,6 +113,34 @@ export default function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Initialize Supabase Auth session listener
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setUser(session.user);
+        loadUserProfile(session.user.id);
+        loadUserSessions(session.user.id);
+        setShowAuthModal(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        setUser(session.user);
+        loadUserProfile(session.user.id);
+        loadUserSessions(session.user.id);
+        setShowAuthModal(false);
+      } else {
+        setUser(null);
+        setProfile(null);
+        setUserSessions([]);
+        setActiveSessionDbId(null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
@@ -112,6 +153,186 @@ export default function App() {
     }
   }, [input]);
 
+  // Debounced auto-save draft to Supabase
+  useEffect(() => {
+    if (!user || !draft) return;
+    const timer = setTimeout(() => {
+      saveSessionToSupabase({ draft });
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [draft]);
+
+  // Load profile
+  async function loadUserProfile(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", userId)
+        .single();
+      if (error && error.code !== "PGRST116") throw error;
+      if (data) {
+        setProfile(data);
+        if (data.level) setLevel(data.level as Level);
+      } else {
+        const defaultProfile = { id: userId, username: userId.substring(0, 8), level: "B1" };
+        const { error: insertError } = await supabase.from("profiles").insert(defaultProfile);
+        if (insertError) console.error("Error creating profile:", insertError);
+        setProfile(defaultProfile);
+      }
+    } catch (err) {
+      console.error("Error loading profile:", err);
+    }
+  }
+
+  // Load previous sessions
+  async function loadUserSessions(userId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("essay_sessions")
+        .select("id, session_id, essay_prompt, essay_type, level, updated_at")
+        .eq("user_id", userId)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      setUserSessions(data || []);
+    } catch (err) {
+      console.error("Error loading user sessions:", err);
+    }
+  }
+
+  // Save session state
+  async function saveSessionToSupabase(stateData: {
+    messages?: Message[];
+    draft?: string;
+    level?: Level;
+    activeSection?: Section;
+    completedSections?: Set<Section>;
+    essayType?: EssayType | null;
+    essayPrompt?: string | null;
+  }) {
+    if (!user) return;
+
+    let prompt = stateData.essayPrompt !== undefined ? stateData.essayPrompt : null;
+    const currentMsgs = stateData.messages ?? messages;
+    if (!prompt && currentMsgs.length > 1) {
+      const firstUserMsg = currentMsgs.find(m => m.role === "user");
+      if (firstUserMsg) prompt = firstUserMsg.content;
+    }
+
+    const payload = {
+      user_id: user.id,
+      session_id: sessionId,
+      essay_prompt: prompt,
+      essay_type: stateData.essayType !== undefined ? stateData.essayType : essayType,
+      level: stateData.level ?? level,
+      active_section: stateData.activeSection ?? activeSection,
+      completed_sections: Array.from(stateData.completedSections ?? completedSections),
+      draft: stateData.draft !== undefined ? stateData.draft : draft,
+      messages: currentMsgs,
+      updated_at: new Date().toISOString(),
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from("essay_sessions")
+        .upsert(
+          { ...payload, ...(activeSessionDbId ? { id: activeSessionDbId } : {}) },
+          { onConflict: "id" }
+        )
+        .select();
+
+      if (error) throw error;
+      if (data && data[0]) {
+        setActiveSessionDbId(data[0].id);
+        loadUserSessions(user.id);
+      }
+    } catch (err) {
+      console.error("Error saving session to Supabase:", err);
+    }
+  }
+
+  // Load specific session
+  async function selectSession(sessionDbId: string) {
+    try {
+      const { data, error } = await supabase
+        .from("essay_sessions")
+        .select("*")
+        .eq("id", sessionDbId)
+        .single();
+      if (error) throw error;
+      if (data) {
+        setActiveSessionDbId(data.id);
+        setSessionId(data.session_id);
+        if (data.essay_type) setEssayType(data.essay_type as EssayType);
+        if (data.level) setLevel(data.level as Level);
+        if (data.active_section) setActiveSection(data.active_section as Section);
+        if (data.completed_sections) setCompletedSections(new Set(data.completed_sections as Section[]));
+        if (data.draft) setDraft(data.draft);
+        if (data.messages) {
+          const loadedMsgs = (data.messages as any[]).map(m => ({
+            ...m,
+            timestamp: new Date(m.timestamp)
+          }));
+          setMessages(loadedMsgs);
+        }
+        setActiveTab("guidance");
+        setEvaluation(null);
+      }
+    } catch (err) {
+      console.error("Error loading session:", err);
+    }
+  }
+
+  // Update profile level setting
+  async function updateProfileLevel(newLevel: Level) {
+    setLevel(newLevel);
+    if (user) {
+      await supabase.from("profiles").update({ level: newLevel }).eq("id", user.id);
+      saveSessionToSupabase({ level: newLevel });
+    }
+  }
+
+  // Auth Handlers
+  async function handleAuth(e: React.FormEvent) {
+    e.preventDefault();
+    setAuthError("");
+    setIsLoadingAuth(true);
+
+    try {
+      if (isSignUp) {
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: { username: usernameInput || email.split("@")[0] }
+          }
+        });
+        if (error) throw error;
+        alert("Đăng ký thành công! Bạn có thể đăng nhập ngay.");
+        setIsSignUp(false);
+      } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        setUser(data.user);
+        setShowAuthModal(false);
+      }
+    } catch (err: any) {
+      setAuthError(err.message || "Đã xảy ra lỗi xác thực.");
+    } finally {
+      setIsLoadingAuth(false);
+    }
+  }
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setProfile(null);
+    setUserSessions([]);
+    setActiveSessionDbId(null);
+    handleReset();
+    setShowAuthModal(true);
+  }
+
 
   async function handleSend() {
     if (!input.trim()) return;
@@ -121,12 +342,16 @@ export default function App() {
       content: input.trim(),
       timestamp: new Date(),
     };
-    setMessages((m) => [...m, userMsg]);
+    const nextMsgs = [...messages, userMsg];
+    setMessages(nextMsgs);
     setInput("");
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
     setIsTyping(true);
+
+    // Save user message immediately to Supabase
+    saveSessionToSupabase({ messages: nextMsgs });
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -136,7 +361,7 @@ export default function App() {
         body: JSON.stringify({
           message: userMsg.content,
           session_id: sessionId,
-          user_id: "react_user",
+          user_id: user ? user.id : "guest_user",
           level: level,
         }),
       });
@@ -148,8 +373,12 @@ export default function App() {
         content: data.text,
         timestamp: new Date(),
       };
-      setMessages((m) => [...m, assistantMsg]);
+      const finalMsgs = [...nextMsgs, assistantMsg];
+      setMessages(finalMsgs);
       
+      let updatedEssayType = essayType;
+      let updatedActiveSection = activeSection;
+
       // Process tool calls from ADK
       if (data.tool_calls) {
         for (const tc of data.tool_calls) {
@@ -158,6 +387,7 @@ export default function App() {
 
           if (tool === "classify_essay_type") {
             setEssayType(result.essay_type);
+            updatedEssayType = result.essay_type;
           } else if (tool === "paraphrase_prompt") {
             if (result.paraphrases) {
               setParaphrases(result.paraphrases);
@@ -174,7 +404,8 @@ export default function App() {
               setCheckedItems({});
             }
             if (result.section) {
-              setActiveSection(result.section);
+              setActiveSection(result.section as Section);
+              updatedActiveSection = result.section as Section;
             }
           } else if (tool === "suggest_sentence_structures") {
             if (result.variations) setStructures(result.variations);
@@ -202,6 +433,14 @@ export default function App() {
           }
         }
       }
+
+      // Sync AI response and classification/section updates to Supabase
+      saveSessionToSupabase({
+        messages: finalMsgs,
+        essayType: updatedEssayType,
+        activeSection: updatedActiveSection,
+      });
+
     } catch (err) {
       console.error(err);
       const errorMsg: Message = {
@@ -220,6 +459,7 @@ export default function App() {
     if (!draft.trim()) return;
     setIsEvaluating(true);
     setEvaluation(null);
+    saveSessionToSupabase({ draft });
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -253,6 +493,10 @@ export default function App() {
   }
 
   function handleReset() {
+    const newSessionId = Math.random().toString(36).substring(7);
+    setSessionId(newSessionId);
+    setActiveSessionDbId(null);
+
     setMessages([WELCOME_MESSAGE]);
     setEssayType(null);
     setCompletedSections(new Set());
@@ -276,6 +520,7 @@ export default function App() {
       const next = new Set(s);
       if (next.has(section)) next.delete(section);
       else next.add(section);
+      saveSessionToSupabase({ completedSections: next });
       return next;
     });
   }
@@ -284,19 +529,16 @@ export default function App() {
     setCheckedItems((prev) => {
       const updated = { ...prev, [item]: !prev[item] };
       const allCompleted = checklist.every((c) => updated[c]);
+      const nextCompleted = new Set(completedSections);
+      
       if (allCompleted) {
-        setCompletedSections((prevSet) => {
-          const nextSet = new Set(prevSet);
-          nextSet.add(activeSection);
-          return nextSet;
-        });
+        nextCompleted.add(activeSection);
       } else {
-        setCompletedSections((prevSet) => {
-          const nextSet = new Set(prevSet);
-          nextSet.delete(activeSection);
-          return nextSet;
-        });
+        nextCompleted.delete(activeSection);
       }
+      
+      setCompletedSections(nextCompleted);
+      saveSessionToSupabase({ completedSections: nextCompleted });
       return updated;
     });
   }
@@ -332,7 +574,7 @@ export default function App() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {essayType && (
             <span
               className="text-xs px-2.5 py-1 rounded-full font-medium"
@@ -347,6 +589,29 @@ export default function App() {
           >
             {level}
           </span>
+          <div className="h-4 w-[1px]" style={{ background: "var(--border)" }} />
+          {user ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-medium" style={{ color: "var(--foreground)" }}>
+                Hi, {profile?.username || user.email?.split("@")[0]}
+              </span>
+              <button
+                onClick={handleLogout}
+                className="text-xs px-2 py-1 rounded-md transition-colors hover:bg-red-500/10 hover:text-red-500 font-medium cursor-pointer"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                Đăng xuất
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors hover:opacity-90 cursor-pointer"
+              style={{ background: "var(--secondary)", color: "var(--foreground)" }}
+            >
+              Đăng nhập
+            </button>
+          )}
         </div>
       </header>
 
@@ -358,6 +623,40 @@ export default function App() {
           style={{ background: "var(--sidebar)", borderColor: "var(--sidebar-border)" }}
         >
           <div className="p-4 flex flex-col gap-5 flex-1">
+            {/* Lịch sử bài viết (Supabase Sessions) */}
+            {user && userSessions.length > 0 && (
+              <div>
+                <p
+                  className="text-xs font-semibold uppercase tracking-widest mb-2.5"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  Lịch sử bài viết
+                </p>
+                <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
+                  {userSessions.map((session) => (
+                    <button
+                      key={session.id}
+                      onClick={() => selectSession(session.id)}
+                      className="text-left w-full text-xs p-2 rounded-lg transition-colors border truncate flex flex-col gap-0.5 cursor-pointer"
+                      style={{ 
+                        background: activeSessionDbId === session.id ? "var(--secondary)" : "transparent",
+                        borderColor: activeSessionDbId === session.id ? "var(--border)" : "transparent",
+                        color: "var(--foreground)" 
+                      }}
+                    >
+                      <span className="font-medium truncate">
+                        {session.essay_prompt || "Bài viết nháp mới"}
+                      </span>
+                      <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                        {new Date(session.updated_at).toLocaleDateString("vi-VN")} · {session.level}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div className="h-[1px] my-4" style={{ background: "var(--border)" }} />
+              </div>
+            )}
+
             {/* Essay type */}
             <div>
               <p
@@ -982,6 +1281,114 @@ export default function App() {
           </div>
         </section>
       </div>
+
+      {/* Auth Modal Overlay */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div 
+            className="w-full max-w-md rounded-2xl border p-8 flex flex-col gap-6 shadow-2xl transition-all"
+            style={{ 
+              background: "var(--card)", 
+              borderColor: "var(--border)",
+              boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.3), 0 8px 10px -6px rgb(0 0 0 / 0.3)"
+            }}
+          >
+            <div className="flex flex-col gap-2 text-center">
+              <h2 className="text-2xl font-semibold tracking-tight" style={{ color: "var(--foreground)" }}>
+                {isSignUp ? "Đăng ký tài khoản" : "Chào mừng trở lại"}
+              </h2>
+              <p className="text-sm" style={{ color: "var(--muted-foreground)" }}>
+                {isSignUp 
+                  ? "Tạo tài khoản để lưu trữ lộ trình học tập và lịch sử viết bài." 
+                  : "Đăng nhập để tiếp tục đồng bộ quá trình luyện viết IELTS."}
+              </p>
+            </div>
+
+            <form onSubmit={handleAuth} className="flex flex-col gap-4">
+              {isSignUp && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Tên người dùng</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Nguyễn Văn A"
+                    className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none"
+                    style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                    value={usernameInput}
+                    onChange={(e) => setUsernameInput(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none"
+                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium" style={{ color: "var(--foreground)" }}>Mật khẩu</label>
+                <input
+                  type="password"
+                  required
+                  placeholder="••••••••"
+                  className="w-full px-3 py-2 rounded-lg border text-sm focus:outline-none"
+                  style={{ background: "var(--background)", borderColor: "var(--border)", color: "var(--foreground)" }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+
+              {authError && (
+                <div className="text-xs text-red-500 font-medium bg-red-500/10 p-2.5 rounded-lg border border-red-500/20">
+                  {authError}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isLoadingAuth}
+                className="w-full py-2.5 rounded-lg text-sm font-medium transition-colors hover:opacity-90 disabled:opacity-50 cursor-pointer"
+                style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
+              >
+                {isLoadingAuth ? "Đang xử lý..." : (isSignUp ? "Đăng ký" : "Đăng nhập")}
+              </button>
+            </form>
+
+            <div className="flex flex-col gap-2 text-center text-sm">
+              <button
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setAuthError("");
+                }}
+                className="text-xs hover:underline cursor-pointer"
+                style={{ color: "var(--primary)" }}
+              >
+                {isSignUp ? "Đã có tài khoản? Đăng nhập" : "Chưa có tài khoản? Đăng ký ngay"}
+              </button>
+              <div className="flex items-center gap-2 my-1">
+                <div className="h-[1px] flex-1" style={{ background: "var(--border)" }} />
+                <span className="text-[10px] uppercase font-bold" style={{ color: "var(--muted-foreground)" }}>Hoặc</span>
+                <div className="h-[1px] flex-1" style={{ background: "var(--border)" }} />
+              </div>
+              <button
+                onClick={() => setShowAuthModal(false)}
+                className="text-xs hover:underline cursor-pointer"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                Tiếp tục dùng thử với tư cách khách (Không lưu lịch sử)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         @keyframes bounce {
