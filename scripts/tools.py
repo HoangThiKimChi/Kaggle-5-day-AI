@@ -390,7 +390,7 @@ def classify_essay_type(prompt: str) -> dict:
         }
 
     # Step 3: Fallback — ask Gemini
-    test_cases_ref = _load_ref("test_cases.md")
+    test_cases_ref = _load_ref("test_cases.feature")
     system_instr = (
         "Bạn là chuyên gia IELTS Writing Task 2. "
         "Phân loại đề bài sau vào một trong 5 dạng: "
@@ -610,11 +610,11 @@ def guide_essay_section(
     linking_ref  = _load_ref("linking_words.md")
 
     brainstorm_map = {
-        "opinion":           "opinion_brainstorm.md",
-        "discussion":        "discussion_brainstorm.md",
-        "adv_dis":           "adv_dis_brainstorm.md",
-        "problem_solution":  "problem_solution_brainstorm.md",
-        "two_part_question": "two_part_question_brainstorm.md",
+        "opinion":           "opinion.feature",
+        "discussion":        "discussion.feature",
+        "adv_dis":           "adv_dis.feature",
+        "problem_solution":  "problem_solution.feature",
+        "two_part_question": "two_part_question.feature",
     }
     brainstorm_ref = _load_ref(brainstorm_map.get(essay_type, "essay_templates.md"))
 
