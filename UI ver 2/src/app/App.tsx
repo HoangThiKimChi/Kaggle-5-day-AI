@@ -387,9 +387,6 @@ export default function App() {
     }
     setIsTyping(true);
 
-    // Save user message immediately to Supabase
-    saveSessionToSupabase({ messages: nextMsgs });
-
     // Auto-append logic for correct sentences when user types their next sentence directly
     let isCorrectSentencePrev = false;
     if (messages.length > 0) {
@@ -410,6 +407,7 @@ export default function App() {
       textVal === "Không, chuyển sang bước tiếp theo." ||
       textVal === "Tôi muốn cải thiện câu này để đạt band cao hơn.";
 
+    let nextDraft = draft;
     if (textVal === "Không, hãy hướng dẫn tôi bước tiếp theo." || (isCorrectSentencePrev && !isControlMessage)) {
       // Find the user's last actual sentence draft
       let lastUserSentence = "";
@@ -431,19 +429,29 @@ export default function App() {
       }
       
       if (lastUserSentence) {
-        setDraft((prev) => {
-          const trimmedPrev = prev.trim();
-          // Avoid duplicate appending
-          if (trimmedPrev.includes(lastUserSentence)) {
-            return prev;
+        const trimmedPrev = draft.trim();
+        // Avoid duplicate appending
+        if (!trimmedPrev.includes(lastUserSentence)) {
+          const paragraphs = trimmedPrev.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+          let separator = " ";
+          
+          if (paragraphs.length > 0) {
+            if (activeSection === "body1" && paragraphs.length === 1) {
+              separator = "\n\n";
+            } else if (activeSection === "body2" && paragraphs.length <= 2) {
+              separator = "\n\n";
+            } else if (activeSection === "conclusion" && paragraphs.length <= 3) {
+              separator = "\n\n";
+            }
           }
-          const separator = trimmedPrev ? " " : "";
-          const newDraft = trimmedPrev + separator + lastUserSentence;
-          saveSessionToSupabase({ draft: newDraft });
-          return newDraft;
-        });
+          nextDraft = trimmedPrev + (trimmedPrev ? separator : "") + lastUserSentence;
+          setDraft(nextDraft);
+        }
       }
     }
+
+    // Save user message and draft in a single unified call to Supabase to prevent duplicate inserts
+    saveSessionToSupabase({ messages: nextMsgs, draft: nextDraft });
 
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
@@ -810,8 +818,8 @@ export default function App() {
                         key={session.id}
                         className="group relative flex items-center gap-1 rounded-lg border transition-all"
                         style={{ 
-                          background: activeSessionDbId === session.id ? "var(--secondary)" : "transparent",
-                          borderColor: activeSessionDbId === session.id ? "var(--border)" : "transparent",
+                          background: activeSessionDbId === session.id ? "rgba(26, 92, 74, 0.08)" : "transparent",
+                          borderColor: activeSessionDbId === session.id ? "rgba(26, 92, 74, 0.3)" : "transparent",
                         }}
                       >
                         <button
