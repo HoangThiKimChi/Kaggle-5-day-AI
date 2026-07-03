@@ -386,7 +386,10 @@ def _init_state() -> None:
         "current_section": None,
         "sections_status": {s: "pending" for s in SECTIONS},
         "essay_draft": {s: "" for s in SECTIONS},
-        "last_tool_result": None,   # {"tool_name": str, "data": dict}
+        "last_tool_result": None,
+        "guide_paraphrases": [],          # [{"technique": str, "text": str}]
+        "guide_vocabulary": [],           # [{"word": str, "meaning": str, "example": str}]
+        "guide_structures": [],           # [{"pattern": str, "text": str, "explanation": str}]
         "adk_runner": None,
         "adk_session_id": None,
         "adk_user_id": "streamlit_user",
@@ -421,21 +424,41 @@ def _apply_tool_calls(tool_calls: list[dict]) -> None:
 
         elif tool_name == "paraphrase_prompt":
             st.session_state["last_tool_result"] = {"tool_name": "paraphrase_prompt", "data": result}
+            # Lưu danh sách cụm từ paraphrase vào guide panel
+            paraphrases = result.get("paraphrases", [])
+            if paraphrases:
+                st.session_state["guide_paraphrases"] = paraphrases
 
         elif tool_name == "guide_essay_section":
             section = result.get("section")
             if section and section in SECTIONS:
-                # Mark current section as in_progress if pending
                 if st.session_state["sections_status"][section] == "pending":
                     st.session_state["sections_status"][section] = "in_progress"
                 st.session_state["current_section"] = section
             st.session_state["last_tool_result"] = {"tool_name": "guide_essay_section", "data": result}
+            # Lưu useful_phrases vào guide_paraphrases nếu có
+            phrases = result.get("useful_phrases", [])
+            if phrases:
+                st.session_state["guide_paraphrases"] = [
+                    {"technique": "Useful phrase", "text": p} for p in phrases
+                ]
 
         elif tool_name == "suggest_sentence_structures":
             st.session_state["last_tool_result"] = {"tool_name": "suggest_sentence_structures", "data": result}
+            variations = result.get("variations", [])
+            if variations:
+                st.session_state["guide_structures"] = variations
 
         elif tool_name == "enrich_vocabulary":
             st.session_state["last_tool_result"] = {"tool_name": "enrich_vocabulary", "data": result}
+            # Gộp topic_words + suggestions vào guide_vocabulary
+            vocab: list[dict] = []
+            suggestions = result.get("suggestions", {})
+            for word, sug_list in suggestions.items():
+                vocab.extend(sug_list)
+            vocab.extend(result.get("topic_words", []))
+            if vocab:
+                st.session_state["guide_vocabulary"] = vocab
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -592,95 +615,58 @@ def _render_chat(col: DeltaGenerator) -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _render_guidance_tab() -> None:
-    ltr = st.session_state.get("last_tool_result")
-    if not ltr:
+    """Tab Hướng dẫn — luôn hiển thị đúng 3 phần cố định."""
+
+    paraphrases = st.session_state.get("guide_paraphrases", [])
+    vocabulary  = st.session_state.get("guide_vocabulary", [])
+    structures  = st.session_state.get("guide_structures", [])
+
+    has_content = paraphrases or vocabulary or structures
+    if not has_content:
         st.markdown("_Chưa có hướng dẫn. Hãy bắt đầu bằng cách gửi đề bài vào chat._")
         return
 
-    tool_name = ltr.get("tool_name", "")
-    data = ltr.get("data", {})
+    # ── 1. Cụm từ paraphrase ────────────────────────────────────────────────
+    st.markdown("#### 🔄 Cụm từ có thể paraphrase")
+    if paraphrases:
+        for p in paraphrases:
+            technique = p.get("technique", "")
+            text      = p.get("text", "")
+            if technique:
+                st.markdown(f"**{technique}**")
+            st.success(text)
+    else:
+        st.caption("_Chưa có — agent sẽ cung cấp sau khi bạn nhập đề bài._")
 
-    if tool_name == "guide_essay_section":
-        section = data.get("section", "")
-        st.markdown(f"#### 📌 Hướng dẫn: {SECTION_LABELS.get(section, section)}")
+    st.divider()
 
-        instructions = data.get("instructions", [])
-        if instructions:
-            st.markdown("**Các bước thực hiện:**")
-            for i, step in enumerate(instructions, 1):
-                st.markdown(f"{i}. {step}")
+    # ── 2. Từ vựng thay thế ─────────────────────────────────────────────────
+    st.markdown("#### 📚 Từ vựng thay thế")
+    if vocabulary:
+        for item in vocabulary:
+            word    = item.get("word", "")
+            meaning = item.get("meaning", "")
+            example = item.get("example", "")
+            st.markdown(f"- **{word}** _{f'({meaning})' if meaning else ''}_ — {example}")
+    else:
+        st.caption("_Chưa có — hỏi agent về từ vựng chủ đề để nhận gợi ý._")
 
-        template = data.get("template")
-        if template:
-            st.markdown("**✏️ Mẫu câu (điền vào chỗ trống):**")
-            st.code(template, language=None)
+    st.divider()
 
-        example = data.get("example")
-        if example:
-            st.markdown("**💡 Ví dụ:**")
-            st.info(example)
-
-        phrases = data.get("useful_phrases", [])
-        if phrases:
-            st.markdown("**🔑 Useful phrases:**")
-            for p in phrases:
-                st.markdown(f"- `{p}`")
-
-        errors = data.get("common_errors", [])
-        if errors:
-            st.markdown("**⚠️ Lỗi thường gặp:**")
-            for e in errors:
-                st.warning(e)
-
-        checklist = data.get("checklist", [])
-        if checklist:
-            st.markdown("**✅ Tự kiểm tra trước khi tiếp tục:**")
-            for item in checklist:
-                st.checkbox(item, key=f"chk_{section}_{item[:20]}")
-
-    elif tool_name == "paraphrase_prompt":
-        st.markdown("#### 🔄 Paraphrase đề bài")
-        paraphrases = data.get("paraphrases", [])
-        for i, p in enumerate(paraphrases, 1):
-            st.markdown(f"**Cách {i} — {p.get('technique', '')}:**")
-            st.success(p.get("text", ""))
-        explanation = data.get("explanation")
-        if explanation:
-            st.caption(explanation)
-
-    elif tool_name == "suggest_sentence_structures":
-        st.markdown("#### 🏗️ Gợi ý cấu trúc câu")
-        variations = data.get("variations", [])
-        for v in variations:
-            st.markdown(f"**Pattern:** `{v.get('pattern', '')}`")
-            st.info(v.get("text", ""))
-            if v.get("explanation"):
-                st.caption(v["explanation"])
-        avoid = data.get("avoid", [])
-        if avoid:
-            st.markdown("**Tránh:**")
-            for a in avoid:
-                st.warning(a)
-
-    elif tool_name == "enrich_vocabulary":
-        st.markdown("#### 📚 Làm giàu từ vựng")
-        overused = data.get("overused_words", [])
-        if overused:
-            st.markdown(f"**Từ lặp:** {', '.join(overused)}")
-        suggestions = data.get("suggestions", {})
-        for word, sug_list in suggestions.items():
-            st.markdown(f"**Thay `{word}` bằng:**")
-            for sug in sug_list:
-                st.markdown(f"- **{sug['word']}** ({sug['meaning']}): _{sug['example']}_")
-        topic_words = data.get("topic_words", [])
-        if topic_words:
-            st.markdown("**Từ vựng theo chủ đề:**")
-            for tw in topic_words:
-                st.markdown(f"- **{tw['word']}** ({tw['meaning']}): _{tw['example']}_")
-        improved = data.get("improved_text")
-        if improved:
-            st.markdown("**Văn bản đã cải thiện:**")
-            st.success(improved)
+    # ── 3. Cấu trúc câu gợi ý ───────────────────────────────────────────────
+    st.markdown("#### 🏗️ Cấu trúc câu có thể dùng")
+    if structures:
+        for v in structures:
+            pattern     = v.get("pattern", "")
+            text        = v.get("text", "")
+            explanation = v.get("explanation", "")
+            if pattern:
+                st.markdown(f"**Pattern:** `{pattern}`")
+            st.info(text)
+            if explanation:
+                st.caption(explanation)
+    else:
+        st.caption("_Chưa có — hỏi agent để nhận gợi ý cấu trúc câu phù hợp._")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
