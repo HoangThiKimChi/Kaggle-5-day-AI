@@ -921,6 +921,134 @@ def ielts_round(avg: float) -> float:
     return math.floor(avg * 2 + 0.5) / 2
 
 
+def _build_evaluation_a2ui(overall_band: float, criteria: dict, essay_type: str, word_count: int) -> dict:
+    """Helper to build an A2UI v0.9 payload for essay evaluation."""
+    components = [
+        {
+            "id": "root",
+            "component": "Column",
+            "children": [
+                "title",
+                "overall_card",
+                "divider_overall",
+                "criteria_header",
+                "criteria_list",
+                "divider_bottom"
+            ]
+        },
+        {
+            "id": "title",
+            "component": "Text",
+            "text": f"📊 IELTS Writing Task 2 Evaluation (Overall: {overall_band} / 6.5)",
+            "variant": "h1"
+        },
+        {
+            "id": "overall_card",
+            "component": "Card",
+            "children": ["overall_header", "overall_meta"]
+        },
+        {
+            "id": "overall_header",
+            "component": "Text",
+            "text": f"🏆 Overall Band Score: {overall_band} / 6.5",
+            "variant": "h2"
+        },
+        {
+            "id": "overall_meta",
+            "component": "Text",
+            "text": f"Dạng đề: {essay_type.replace('_', ' ').title()} | Tổng số từ: {word_count} từ",
+            "variant": "caption"
+        },
+        {
+            "id": "divider_overall",
+            "component": "Divider"
+        },
+        {
+            "id": "criteria_header",
+            "component": "Text",
+            "text": "🎯 Đánh giá chi tiết từng tiêu chí",
+            "variant": "h2"
+        },
+        {
+            "id": "criteria_list",
+            "component": "Column",
+            "children": ["tr_card", "cc_card", "lr_card", "gr_card"]
+        },
+        {
+            "id": "divider_bottom",
+            "component": "Divider"
+        }
+    ]
+
+    criteria_keys = {
+        "task_response": ("Task Response (Đáp ứng yêu cầu)", "tr"),
+        "coherence_cohesion": ("Coherence & Cohesion (Mạch lạc)", "cc"),
+        "lexical_resource": ("Lexical Resource (Từ vựng)", "lr"),
+        "grammatical_range": ("Grammatical Range (Ngữ pháp)", "gr")
+    }
+
+    for key, (label, prefix) in criteria_keys.items():
+        crit_data = criteria.get(key, {})
+        band = crit_data.get("band", 1.0)
+        feedback = crit_data.get("feedback", "Không có nhận xét.")
+        suggestions = crit_data.get("suggestions", [])
+        
+        sug_lines = []
+        for i, s in enumerate(suggestions):
+            sug_lines.append(f"- {s}")
+        sug_text = "\n".join(sug_lines) if sug_lines else "_Không có gợi ý cụ thể._"
+
+        components.append({
+            "id": f"{prefix}_card",
+            "component": "Card",
+            "children": [
+                f"{prefix}_title",
+                f"{prefix}_feedback_lbl",
+                f"{prefix}_feedback_val",
+                f"{prefix}_sug_lbl",
+                f"{prefix}_sug_val"
+            ]
+        })
+        components.append({
+            "id": f"{prefix}_title",
+            "component": "Text",
+            "text": f"📌 {label}: {band} / 6.5",
+            "variant": "h3"
+        })
+        components.append({
+            "id": f"{prefix}_feedback_lbl",
+            "component": "Text",
+            "text": "📝 **Nhận xét từ giáo viên:**",
+            "variant": "body"
+        })
+        components.append({
+            "id": f"{prefix}_feedback_val",
+            "component": "Text",
+            "text": feedback,
+            "variant": "body"
+        })
+        components.append({
+            "id": f"{prefix}_sug_lbl",
+            "component": "Text",
+            "text": "💡 **Lời khuyên nâng band:**",
+            "variant": "body"
+        })
+        components.append({
+            "id": f"{prefix}_sug_val",
+            "component": "Text",
+            "text": sug_text,
+            "variant": "body"
+        })
+
+    return {
+        "version": "v0.9",
+        "updateComponents": {
+            "surfaceId": "main",
+            "components": components
+        }
+    }
+
+
 def evaluate_essay(essay_text: str, essay_type: str) -> dict:
     """Đánh giá và chấm điểm toàn diện bài viết IELTS Writing Task 2.
 
@@ -937,7 +1065,7 @@ def evaluate_essay(essay_text: str, essay_type: str) -> dict:
     # 1. Mock mode check
     if os.environ.get("MOCK_GEMINI", "").strip() == "1":
         words = len(essay_text.split())
-        return {
+        mock_result = {
             "overall_band": 5.0,
             "criteria": {
                 "task_response": {
@@ -977,6 +1105,9 @@ def evaluate_essay(essay_text: str, essay_type: str) -> dict:
             "word_count": words,
             "error": False
         }
+        mock_result["ui_available"] = True
+        mock_result["ui"] = _build_evaluation_a2ui(5.0, mock_result["criteria"], essay_type, words)
+        return mock_result
 
     # 2. Real API evaluation
     # Load Rubric JSON
@@ -1049,13 +1180,16 @@ def evaluate_essay(essay_text: str, essay_type: str) -> dict:
 
                     overall_band = ielts_round(sum(bands) / 4.0)
 
-                    return {
+                    res_dict = {
                         "overall_band": overall_band,
                         "criteria": processed_criteria,
                         "essay_type": essay_type,
                         "word_count": len(essay_text.split()),
                         "error": False
                     }
+                    res_dict["ui_available"] = True
+                    res_dict["ui"] = _build_evaluation_a2ui(overall_band, processed_criteria, essay_type, len(essay_text.split()))
+                    return res_dict
             except Exception as e:
                 err_str = str(e)
                 last_err = e

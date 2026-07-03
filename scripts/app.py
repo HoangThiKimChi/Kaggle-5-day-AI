@@ -834,6 +834,137 @@ def _render_essay_tab() -> None:
         st.caption("_Chưa có nội dung nào — hãy viết vào các ô bên trên._")
 
 
+def render_a2ui(payload: dict) -> None:
+    """Động dịch và hiển thị mã A2UI JSON v0.9 bằng streamlit native components."""
+    if not payload or "updateComponents" not in payload:
+        return
+    
+    update = payload["updateComponents"]
+    components = update.get("components", [])
+    
+    # Build lookup map by ID
+    comp_map = {c["id"]: c for c in components}
+    
+    # Helper to recursively render components
+    def render_node(comp_id: str):
+        if comp_id not in comp_map:
+            return
+        
+        comp = comp_map[comp_id]
+        comp_type = comp.get("component")
+        
+        if comp_type == "Column":
+            children = comp.get("children", [])
+            for child_id in children:
+                render_node(child_id)
+                
+        elif comp_type == "Row":
+            children = comp.get("children", [])
+            if children:
+                cols = st.columns(len(children))
+                for idx, child_id in enumerate(children):
+                    with cols[idx]:
+                        render_node(child_id)
+                        
+        elif comp_type == "Card":
+            children = comp.get("children", [])
+            with st.container(border=True):
+                for child_id in children:
+                    render_node(child_id)
+                    
+        elif comp_type == "Tabs":
+            children = comp.get("children", [])
+            if children:
+                tab_labels = comp.get("labels", [f"Tab {i+1}" for i in range(len(children))])
+                st_tabs = st.tabs(tab_labels)
+                for idx, child_id in enumerate(children):
+                    with st_tabs[idx]:
+                        render_node(child_id)
+                        
+        elif comp_type == "Text":
+            text = comp.get("text", "")
+            variant = comp.get("variant", "body")
+            if variant == "h1":
+                st.subheader(text)
+            elif variant == "h2":
+                st.markdown(f"##### {text}")
+            elif variant == "h3":
+                st.markdown(f"###### {text}")
+            elif variant == "caption":
+                st.caption(text)
+            else:
+                st.write(text)
+                
+        elif comp_type == "Divider":
+            st.divider()
+            
+        elif comp_type == "Button":
+            label_id = comp.get("child")
+            label_text = comp_map.get(label_id, {}).get("text", "Button") if label_id else "Button"
+            action = comp.get("action", {})
+            event_name = action.get("event", {}).get("name", "")
+            
+            if st.button(label_text, key=f"a2ui_{comp_id}"):
+                st.session_state["a2ui_event"] = event_name
+                st.rerun()
+                
+        elif comp_type == "Image":
+            src = comp.get("src", "")
+            st.image(src)
+            
+        elif comp_type == "Icon":
+            name = comp.get("name", "")
+            st.write(f"Icon: {name}")
+
+    if "root" in comp_map:
+        render_node("root")
+    elif components:
+        render_node(components[0]["id"])
+
+
+def _render_standard_evaluation(eval_result: dict, essay_type: str, word_count: int) -> None:
+    overall_band = eval_result["overall_band"]
+    criteria = eval_result["criteria"]
+    words = eval_result.get("word_count", word_count)
+
+    # Overall Band display
+    st.subheader("🏆 Kết quả đánh giá chung")
+    st.metric(label="Overall Band Score", value=f"{overall_band} / 6.5")
+    st.progress(overall_band / 6.5)
+    st.caption(f"Tổng số từ đã chấm: **{words} từ** | Dạng đề: **{essay_type.replace('_', ' ').title()}**")
+    
+    st.divider()
+
+    # Detailed criteria scores
+    st.subheader("🎯 Điểm số chi tiết theo tiêu chí")
+    criteria_labels = {
+        "task_response": "Task Response (Đáp ứng yêu cầu)",
+        "coherence_cohesion": "Coherence & Cohesion (Mạch lạc & Liên kết)",
+        "lexical_resource": "Lexical Resource (Từ vựng)",
+        "grammatical_range": "Grammatical Range (Ngữ pháp)"
+    }
+
+    for key, label in criteria_labels.items():
+        crit_data = criteria.get(key, {})
+        band = crit_data.get("band", 1.0)
+        
+        st.markdown(f"**{label}: {band} / 6.5**")
+        st.progress(band / 6.5)
+        
+        with st.expander(f"🔍 Xem nhận xét tiêu chí {label.split(' (')[0]}", expanded=False):
+            st.markdown(f"**Nhận xét:** {crit_data.get('feedback', '')}")
+            st.markdown("**Gợi ý cải thiện:**")
+            suggestions = crit_data.get("suggestions", [])
+            if suggestions:
+                for sug in suggestions:
+                    st.write(f"- {sug}")
+            else:
+                st.write("_Không có gợi ý cụ thể._")
+        st.write("")
+
+    st.divider()
+
+
 def _render_evaluation_tab() -> None:
     st.markdown("#### 📊 Đánh giá bài viết (IELTS Band 1.0 – 6.5)")
     st.caption("Chấm điểm bài viết của bạn dựa trên thang rubric rút gọn của IELTS Writing Task 2.")
@@ -880,50 +1011,16 @@ def _render_evaluation_tab() -> None:
                         st.session_state["evaluation_cache"][cache_key] = result
                         st.rerun()
     else:
-        # State: Already evaluated, show dashboard!
-        overall_band = eval_result["overall_band"]
-        criteria = eval_result["criteria"]
-        words = eval_result.get("word_count", word_count)
-
-        # Overall Band display
-        st.subheader("🏆 Kết quả đánh giá chung")
-        
-        # Display overall band score
-        st.metric(label="Overall Band Score", value=f"{overall_band} / 6.5")
-        st.progress(overall_band / 6.5)
-        st.caption(f"Tổng số từ đã chấm: **{words} từ** | Dạng đề: **{essay_type.replace('_', ' ').title()}**")
-        
-        st.divider()
-
-        # Detailed criteria scores
-        st.subheader("🎯 Điểm số chi tiết theo tiêu chí")
-        
-        criteria_labels = {
-            "task_response": "Task Response (Đáp ứng yêu cầu)",
-            "coherence_cohesion": "Coherence & Cohesion (Mạch lạc & Liên kết)",
-            "lexical_resource": "Lexical Resource (Từ vựng)",
-            "grammatical_range": "Grammatical Range (Ngữ pháp)"
-        }
-
-        for key, label in criteria_labels.items():
-            crit_data = criteria.get(key, {})
-            band = crit_data.get("band", 1.0)
-            
-            st.markdown(f"**{label}: {band} / 6.5**")
-            st.progress(band / 6.5)
-            
-            with st.expander(f"🔍 Xem nhận xét tiêu chí {label.split(' (')[0]}", expanded=False):
-                st.markdown(f"**Nhận xét:** {crit_data.get('feedback', '')}")
-                st.markdown("**Gợi ý cải thiện:**")
-                suggestions = crit_data.get("suggestions", [])
-                if suggestions:
-                    for sug in suggestions:
-                        st.write(f"- {sug}")
-                else:
-                    st.write("_Không có gợi ý cụ thể._")
-            st.write("")
-
-        st.divider()
+        # State: Already evaluated. Try rendering using A2UI if available.
+        if eval_result.get("ui_available") and eval_result.get("ui"):
+            try:
+                render_a2ui(eval_result["ui"])
+            except Exception as e:
+                # Fallback to standard dashboard rendering if rendering fails
+                st.error(f"Lỗi giải mã A2UI: {e}. Chuyển sang hiển thị mặc định.")
+                _render_standard_evaluation(eval_result, essay_type, word_count)
+        else:
+            _render_standard_evaluation(eval_result, essay_type, word_count)
 
         # Re-evaluate button
         if st.button("🔄 Chấm điểm lại", key="btn_eval_re", disabled=not can_evaluate):
