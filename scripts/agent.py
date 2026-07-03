@@ -21,12 +21,24 @@ import time
 # Ensure the Capstone directory is on the path so `import tools` works
 sys.path.insert(0, os.path.dirname(__file__))
 
-# Load env variables from .env file
+# Load env variables from .env file manually to force override any stale OS shell credentials
 try:
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
-except ImportError:
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ[k.strip()] = v.strip().strip('"').strip("'")
+except Exception:
     pass
+
+# Clean Vertex AI conflict and force-forward the key
+os.environ.pop("GOOGLE_GENAI_USE_VERTEXAI", None)
+api_key = os.environ.get("GEMINI_API_KEY", "")
+if api_key:
+    os.environ["GOOGLE_API_KEY"] = api_key
 
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
@@ -157,7 +169,7 @@ chủ đề không liên quan đến IELTS Writing Task 2), hãy:
 
 root_agent = Agent(
     name="essay_writing_coach",
-    model="gemini-2.5-flash-lite",
+    model="gemini-2.5-flash",
     instruction=SYSTEM_PROMPT,
     tools=TOOLS,
     description=(

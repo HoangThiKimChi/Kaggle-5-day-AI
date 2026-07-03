@@ -11,6 +11,25 @@ internally delegating execution to modular class instances.
 """
 
 import os
+
+# Load env variables from .env file manually to force override any stale OS shell credentials
+try:
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ[k.strip()] = v.strip().strip('"').strip("'")
+except Exception:
+    pass
+
+# Clean Vertex AI conflict and force-forward the key
+os.environ.pop("GOOGLE_GENAI_USE_VERTEXAI", None)
+api_key = os.environ.get("GEMINI_API_KEY", "")
+if api_key:
+    os.environ["GOOGLE_API_KEY"] = api_key
 import json
 import re
 from pathlib import Path
@@ -171,7 +190,7 @@ class GeminiServiceClient:
         full_prompt = f"{system_instruction}\n\n{user_prompt}" if system_instruction else user_prompt
         try:
             response = client.models.generate_content(
-                model="gemini-2.5-flash-lite",
+                model="gemini-2.5-flash",
                 contents=full_prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
@@ -712,7 +731,7 @@ class IELTSEssayEvaluator:
             return {"error": True, "message": "Không tìm thấy API Key cấu hình."}
 
         client = genai.Client(api_key=api_key)
-        models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
+        models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
         last_err = None
 
         import time

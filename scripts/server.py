@@ -21,17 +21,24 @@ from fastapi.middleware.cors import CORSMiddleware
 # Add scripts directory to path to resolve local imports
 sys.path.insert(0, str(Path(__file__).parent))
 
-# Load environment variables
+# Load env variables from .env file manually to force override any stale OS shell credentials
 try:
-    from dotenv import load_dotenv
-    load_dotenv(override=True)
-except ImportError:
+    env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith("#") and "=" in line:
+                    k, v = line.split("=", 1)
+                    os.environ[k.strip()] = v.strip().strip('"').strip("'")
+except Exception:
     pass
 
-# Forward API Key for ADK
+# Clean Vertex AI conflict and force-forward the key
+os.environ.pop("GOOGLE_GENAI_USE_VERTEXAI", None)
 api_key = os.environ.get("GEMINI_API_KEY", "")
 if api_key:
-    os.environ.setdefault("GOOGLE_API_KEY", api_key)
+    os.environ["GOOGLE_API_KEY"] = api_key
 
 # Lazy imports of agent and tools
 from agent import create_runner, ensure_session
