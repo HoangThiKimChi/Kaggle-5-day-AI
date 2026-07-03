@@ -8,6 +8,7 @@ import {
   CheckSquare,
   Square,
   ChevronRight,
+  ChevronDown,
   Lightbulb,
   FileText,
   Award,
@@ -16,6 +17,7 @@ import {
   Layers,
   CheckCircle2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 
 type Level = "A2" | "B1";
@@ -100,6 +102,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>("guidance");
   const [draft, setDraft] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [isHistoryExpanded, setIsHistoryExpanded] = useState(true);
   
   // Real-time coach guidelines states
   const [paraphrases, setParaphrases] = useState<{ text: string; technique: string }[]>([]);
@@ -285,6 +288,34 @@ export default function App() {
       }
     } catch (err) {
       console.error("Error loading session:", err);
+    }
+  }
+
+  // Delete specific session from Supabase
+  async function deleteSession(sessionDbId: string, event: React.MouseEvent) {
+    event.stopPropagation(); // Prevent selecting the session when clicking delete
+    
+    const confirmDelete = window.confirm("Bạn có chắc chắn muốn xóa bài viết này không?");
+    if (!confirmDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("essay_sessions")
+        .delete()
+        .eq("id", sessionDbId);
+      
+      if (error) throw error;
+      
+      if (activeSessionDbId === sessionDbId) {
+        handleReset();
+      }
+      
+      if (user) {
+        loadUserSessions(user.id);
+      }
+    } catch (err) {
+      console.error("Error deleting session:", err);
+      alert("⚠️ Không thể xóa bài viết. Vui lòng thử lại.");
     }
   }
 
@@ -763,34 +794,51 @@ export default function App() {
             {/* Lịch sử bài viết (Supabase Sessions) */}
             {user && userSessions.length > 0 && (
               <div>
-                <p
-                  className="text-xs font-semibold uppercase tracking-widest mb-2.5"
+                <button
+                  onClick={() => setIsHistoryExpanded(!isHistoryExpanded)}
+                  className="w-full flex items-center justify-between text-[11px] font-semibold uppercase tracking-widest mb-2 px-1 cursor-pointer select-none border-none bg-transparent text-left"
                   style={{ color: "var(--muted-foreground)" }}
                 >
-                  Lịch sử bài viết
-                </p>
-                <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1 py-1">
-                  {userSessions.map((session) => (
-                    <button
-                      key={session.id}
-                      onClick={() => selectSession(session.id)}
-                      className="text-left w-full text-xs p-2.5 rounded-lg transition-colors border flex flex-col gap-1 cursor-pointer"
-                      style={{ 
-                        background: activeSessionDbId === session.id ? "var(--secondary)" : "transparent",
-                        borderColor: activeSessionDbId === session.id ? "var(--border)" : "transparent",
-                        color: "var(--foreground)" 
-                      }}
-                    >
-                      <span className="font-medium truncate w-full">
-                        {session.essay_prompt || "Bài viết nháp mới"}
-                      </span>
-                      <span className="text-[10px] w-full" style={{ color: "var(--muted-foreground)" }}>
-                        {new Date(session.updated_at).toLocaleDateString("vi-VN")} · {session.level}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                <div className="h-[1px] my-4" style={{ background: "var(--border)" }} />
+                  <span>Lịch sử bài viết ({userSessions.length})</span>
+                  {isHistoryExpanded ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+                </button>
+                
+                {isHistoryExpanded && (
+                  <div className="flex flex-col gap-1 max-h-[120px] overflow-y-auto pr-1 py-1 scrollbar-thin">
+                    {userSessions.map((session) => (
+                      <div
+                        key={session.id}
+                        className="group relative flex items-center gap-1 rounded-lg border transition-all"
+                        style={{ 
+                          background: activeSessionDbId === session.id ? "var(--secondary)" : "transparent",
+                          borderColor: activeSessionDbId === session.id ? "var(--border)" : "transparent",
+                        }}
+                      >
+                        <button
+                          onClick={() => selectSession(session.id)}
+                          className="text-left flex-1 text-xs p-2 rounded-lg flex flex-col gap-0.5 cursor-pointer min-w-0 border-none bg-transparent"
+                          style={{ color: "var(--foreground)" }}
+                        >
+                          <span className="font-medium truncate w-[90%] block">
+                            {session.essay_prompt || "Bài viết nháp mới"}
+                          </span>
+                          <span className="text-[9px]" style={{ color: "var(--muted-foreground)" }}>
+                            {new Date(session.updated_at).toLocaleDateString("vi-VN")} · {session.level}
+                          </span>
+                        </button>
+                        
+                        <button
+                          onClick={(e) => deleteSession(session.id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all cursor-pointer mr-1 shrink-0 border-none bg-transparent"
+                          title="Xóa bài viết"
+                        >
+                          <Trash2 size={11} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="h-[1px] my-3" style={{ background: "var(--border)" }} />
               </div>
             )}
 
