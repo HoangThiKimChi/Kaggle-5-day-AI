@@ -709,24 +709,56 @@ def _render_essay_tab() -> None:
         # "Xong phần này" button — only show for current in-progress section
         if status == "in_progress" and draft.strip():
             if st.button(f"✅ Xong phần {label}", key=f"done_{sec}"):
-                st.session_state["sections_status"][sec] = "done"
-                # Auto-advance current_section
-                idx = SECTIONS.index(sec)
-                if idx + 1 < len(SECTIONS):
-                    next_sec = SECTIONS[idx + 1]
-                    st.session_state["current_section"] = next_sec
-                    # Append agent nudge message
-                    next_label = SECTION_LABELS[next_sec]
-                    st.session_state["messages"].append({
-                        "role": "agent",
-                        "content": f"✅ Bạn đã hoàn thành **{label}**! Bạn có muốn tiếp tục sang **{next_label}** không?",
-                    })
-                else:
-                    st.session_state["current_section"] = None
-                    st.session_state["messages"].append({
-                        "role": "agent",
-                        "content": "🎉 Tuyệt vời! Bạn đã hoàn thành cả 4 phần essay! Nhấn '📋 Copy toàn bộ essay' để lấy bản hoàn chỉnh.",
-                    })
+                # Prepare message to the agent with the user's draft
+                user_msg = f"Tôi đã viết xong phần {label}. Đây là nội dung của tôi:\n\"{draft.strip()}\"\n\nHãy nhận xét ngắn gọn và hướng dẫn tôi viết phần tiếp theo."
+                st.session_state["messages"].append({"role": "user", "content": user_msg})
+                st.session_state["last_user_msg"] = user_msg
+                st.session_state["pending_retry"] = False
+
+                # Prepend target level as prefix
+                level_prefix = f"[Level: {st.session_state['level']}] "
+                prefixed_input = level_prefix + user_msg
+
+                try:
+                    with st.spinner("Agent đang kiểm tra bài viết và chuẩn bị hướng dẫn phần tiếp theo..."):
+                        result = run_turn_structured(
+                            st.session_state["adk_runner"],
+                            st.session_state["adk_session_id"],
+                            st.session_state["adk_user_id"],
+                            prefixed_input,
+                        )
+                    # Mark current section as done
+                    st.session_state["sections_status"][sec] = "done"
+                    
+                    # Apply tool calls (e.g. guide_essay_section for next section)
+                    _apply_tool_calls(result["tool_calls"])
+                    
+                    # Append agent's feedback message
+                    st.session_state["messages"].append({"role": "agent", "content": result["text"]})
+
+                    # Save session state if database is enabled
+                    if st.session_state.get("db_enabled"):
+                        try:
+                            from db import save_session
+                            save_session(
+                                session_id=st.session_state["adk_session_id"],
+                                essay_type=st.session_state["essay_type"],
+                                level=st.session_state["level"],
+                                sections_status=st.session_state["sections_status"],
+                                essay_draft=st.session_state["essay_draft"]
+                            )
+                        except Exception:
+                            pass
+                except Exception as exc:
+                    err_type = type(exc).__name__
+                    if "429" in str(exc) or "ResourceExhausted" in err_type:
+                        friendly = "⚠️ Đã vượt giới hạn quota API. Vui lòng thử lại sau vài phút."
+                    elif "NotFound" in err_type or "404" in str(exc):
+                        friendly = "⚠️ Lỗi kết nối tới mô hình AI (404). Vui lòng kiểm tra lại API key."
+                    else:
+                        friendly = f"⚠️ Đã xảy ra lỗi kỹ thuật ({err_type}). Vui lòng thử lại."
+                    st.session_state["messages"].append({"role": "error", "content": friendly})
+                    st.session_state["pending_retry"] = True
                 st.rerun()
 
     st.divider()
