@@ -94,9 +94,10 @@ Capstone/
 
 ---
 
-## Trạng thái hiện tại (cập nhật 03/07/2026 trưa)
+## Trạng thái hiện tại (cập nhật 03/07/2026 chiều)
 
-- ✅ `tools.py`, `agent.py` — hoàn thành, đã đổi sang model `gemini-2.5-flash-lite` cho quota cao hơn và chạy ổn định.
-- ✅ Giai đoạn 1 (3 điểm chặn cứng cho UI) — PASS bằng cả Mock và Live API (đã test 6 requests thật thành công).
-- ✅ Giai đoạn 2 (`app.py`, `test_level_flows.py` và `verify_real_level_flows.py`) — hoàn thành, chạy thực tế phân luồng A2 và B1 chính xác.
-- ⏳ Chưa làm: quay video demo, deploy lên Streamlit Cloud, điền các link vào Writeup và submit Kaggle.
+- ✅ `tools.py`, `agent.py` — hoàn thành, đã cấu hình mô hình linh hoạt (mặc định flash, tự động fallback flash-lite khi 429/503).
+- ✅ Giai đoạn 1 (3 điểm chặn cứng cho UI) — PASS bằng cả Mock và Live API.
+- ✅ Giai đoạn 2 (`app.py`, `test_level_flows.py` và `verify_real_level_flows.py`) — hoàn thành, phân luồng B1 và A2 hoạt động trơn tru.
+- ✅ Giai đoạn 3 (IELTS Essay Evaluator) — hoàn thành, chấm điểm từ 1.0 đến 6.5 chuẩn IELTS, tích hợp cache, quota fallback, và cập nhật giao diện 3 tab trên Streamlit Cloud.
+- ⏳ Chưa làm: quay video demo, điền các link demo/video vào Writeup và submit bài viết chính thức lên Kaggle.
