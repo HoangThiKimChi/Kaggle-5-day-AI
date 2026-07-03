@@ -40,6 +40,52 @@ from google.genai import types as genai_types
 
 app = FastAPI(title="IELTS Writing Coach Backend")
 
+import time
+from collections import defaultdict
+from fastapi import Request
+from fastapi.responses import JSONResponse
+
+# Simple in-memory sliding window rate limiter to protect the API from spam bots
+RATE_LIMIT_WINDOW_SECONDS = 60
+RATE_LIMIT_MAX_REQUESTS = 10  # Max 10 requests per minute per IP
+
+ip_request_history = defaultdict(list)
+
+@app.middleware("http")
+async def check_rate_limit(request: Request, call_next):
+    path = request.url.path
+    if path in ["/api/chat", "/api/evaluate"]:
+        # Get client IP (support Hugging Face / Vercel proxies)
+        x_forwarded_for = request.headers.get("x-forwarded-for")
+        if x_forwarded_for:
+            client_ip = x_forwarded_for.split(",")[0].strip()
+        else:
+            client_ip = request.client.host if request.client else "unknown"
+
+        now = time.time()
+        # Clean up older timestamps
+        ip_request_history[client_ip] = [
+            ts for ts in ip_request_history[client_ip]
+            if now - ts < RATE_LIMIT_WINDOW_SECONDS
+        ]
+
+        if len(ip_request_history[client_ip]) >= RATE_LIMIT_MAX_REQUESTS:
+            # Block request immediately
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "error": True,
+                    "text": "⚠️ Bạn đang gửi quá nhiều yêu cầu. Vui lòng đợi 1 phút trước khi tiếp tục.",
+                    "message": "⚠️ Bạn đang gửi quá nhiều yêu cầu. Vui lòng đợi 1 phút trước khi tiếp tục."
+                }
+            )
+
+        # Record request timestamp
+        ip_request_history[client_ip].append(now)
+
+    response = await call_next(request)
+    return response
+
 # Enable CORS for React frontend
 app.add_middleware(
     CORSMiddleware,
