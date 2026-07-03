@@ -1032,15 +1032,25 @@ export default function App() {
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
             {/* Quick Actions Option Buttons */}
-            {!isTyping && messages.length > 1 && messages[messages.length - 1].role === "assistant" && essayType !== null && (() => {
+            {!isTyping && messages.length > 1 && essayType !== null && (() => {
               const lastMsg = messages[messages.length - 1];
-              const isCorrectSentence = lastMsg && lastMsg.role === "assistant" && (
+              if (!lastMsg || lastMsg.role !== "assistant") return null;
+
+              const isCorrectSentence = 
                 lastMsg.content.includes("hoàn toàn chính xác") ||
                 lastMsg.content.includes("không có lỗi sai nào") ||
                 lastMsg.content.includes("không mắc bất kỳ lỗi") ||
                 lastMsg.content.includes("không mắc lỗi nào") ||
-                lastMsg.content.includes("Chúc mừng bạn!")
-              );
+                lastMsg.content.includes("Chúc mừng bạn!");
+
+              const isIncorrectSentence = 
+                lastMsg.content.includes("~~") ||
+                lastMsg.content.includes("lỗi ngữ pháp") ||
+                lastMsg.content.includes("lỗi chính tả") ||
+                lastMsg.content.includes("lỗi từ vựng") ||
+                lastMsg.content.includes("sửa lại") ||
+                lastMsg.content.includes("cải thiện") ||
+                lastMsg.content.includes("nâng band");
 
               if (isCorrectSentence) {
                 return (
@@ -1082,32 +1092,36 @@ export default function App() {
                 );
               }
 
-              return (
-                <div className="flex flex-wrap gap-2 animate-fade-in">
-                  <button
-                    onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
-                    className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                    style={{
-                      background: "rgba(34, 197, 94, 0.08)",
-                      borderColor: "rgba(34, 197, 94, 0.3)",
-                      color: "rgb(21, 128, 61)"
-                    }}
-                  >
-                    🚀 Có, giúp tôi nâng band câu này
-                  </button>
-                  <button
-                    onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
-                    className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                    style={{
-                      background: "var(--secondary)",
-                      borderColor: "var(--border)",
-                      color: "var(--muted-foreground)"
-                    }}
-                  >
-                    ➡️ Không, chuyển sang bước tiếp theo
-                  </button>
-                </div>
-              );
+              if (isIncorrectSentence) {
+                return (
+                  <div className="flex flex-wrap gap-2 animate-fade-in">
+                    <button
+                      onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
+                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                      style={{
+                        background: "rgba(34, 197, 94, 0.08)",
+                        borderColor: "rgba(34, 197, 94, 0.3)",
+                        color: "rgb(21, 128, 61)"
+                      }}
+                    >
+                      🚀 Có, giúp tôi nâng band câu này
+                    </button>
+                    <button
+                      onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
+                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                      style={{
+                        background: "var(--secondary)",
+                        borderColor: "var(--border)",
+                        color: "var(--muted-foreground)"
+                      }}
+                    >
+                      ➡️ Không, chuyển sang bước tiếp theo
+                    </button>
+                  </div>
+                );
+              }
+
+              return null;
             })()}
 
             <div
