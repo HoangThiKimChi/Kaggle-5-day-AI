@@ -359,7 +359,27 @@ export default function App() {
     // Save user message immediately to Supabase
     saveSessionToSupabase({ messages: nextMsgs });
 
-    if (textVal === "Không, hãy hướng dẫn tôi bước tiếp theo.") {
+    // Auto-append logic for correct sentences when user types their next sentence directly
+    let isCorrectSentencePrev = false;
+    if (messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      isCorrectSentencePrev = lastMsg && lastMsg.role === "assistant" && (
+        lastMsg.content.includes("hoàn toàn chính xác") ||
+        lastMsg.content.includes("không có lỗi sai nào") ||
+        lastMsg.content.includes("không mắc bất kỳ lỗi") ||
+        lastMsg.content.includes("không mắc lỗi nào") ||
+        lastMsg.content.includes("Chúc mừng bạn!")
+      );
+    }
+
+    const isControlMessage = 
+      textVal === "Giải thích chi tiết câu này giúp mình." ||
+      textVal === "Hãy giúp mình cải thiện câu này để đạt band cao hơn." ||
+      textVal === "Không, hãy hướng dẫn tôi bước tiếp theo." ||
+      textVal === "Không, chuyển sang bước tiếp theo." ||
+      textVal === "Tôi muốn cải thiện câu này để đạt band cao hơn.";
+
+    if (textVal === "Không, hãy hướng dẫn tôi bước tiếp theo." || (isCorrectSentencePrev && !isControlMessage)) {
       // Find the user's last actual sentence draft
       let lastUserSentence = "";
       for (let i = messages.length - 1; i >= 0; i--) {
@@ -369,7 +389,9 @@ export default function App() {
           if (
             !text.includes("Tôi muốn cải thiện") && 
             !text.includes("Không, hãy hướng dẫn") && 
-            !text.includes("Không, chuyển sang bước")
+            !text.includes("Không, chuyển sang bước") &&
+            !text.includes("Giải thích chi tiết") &&
+            !text.includes("Hãy giúp mình cải thiện")
           ) {
             lastUserSentence = text;
             break;
@@ -1010,32 +1032,83 @@ export default function App() {
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
             {/* Quick Actions Option Buttons */}
-            {!isTyping && messages.length > 1 && messages[messages.length - 1].role === "assistant" && essayType !== null && (
-              <div className="flex flex-wrap gap-2 animate-fade-in">
-                <button
-                  onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
-                  className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                  style={{
-                    background: "rgba(34, 197, 94, 0.08)",
-                    borderColor: "rgba(34, 197, 94, 0.3)",
-                    color: "rgb(21, 128, 61)"
-                  }}
-                >
-                  🚀 Có, giúp tôi nâng band câu này
-                </button>
-                <button
-                  onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
-                  className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
-                  style={{
-                    background: "var(--secondary)",
-                    borderColor: "var(--border)",
-                    color: "var(--muted-foreground)"
-                  }}
-                >
-                  ➡️ Không, chuyển sang bước tiếp theo
-                </button>
-              </div>
-            )}
+            {!isTyping && messages.length > 1 && messages[messages.length - 1].role === "assistant" && essayType !== null && (() => {
+              const lastMsg = messages[messages.length - 1];
+              const isCorrectSentence = lastMsg && lastMsg.role === "assistant" && (
+                lastMsg.content.includes("hoàn toàn chính xác") ||
+                lastMsg.content.includes("không có lỗi sai nào") ||
+                lastMsg.content.includes("không mắc bất kỳ lỗi") ||
+                lastMsg.content.includes("không mắc lỗi nào") ||
+                lastMsg.content.includes("Chúc mừng bạn!")
+              );
+
+              if (isCorrectSentence) {
+                return (
+                  <div className="flex flex-wrap gap-2 animate-fade-in">
+                    <button
+                      onClick={() => handleSend("Giải thích chi tiết câu này giúp mình.")}
+                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                      style={{
+                        background: "rgba(59, 130, 246, 0.08)",
+                        borderColor: "rgba(59, 130, 246, 0.3)",
+                        color: "rgb(29, 78, 216)"
+                      }}
+                    >
+                      📖 Giải thích chi tiết câu này
+                    </button>
+                    <button
+                      onClick={() => handleSend("Hãy giúp mình cải thiện câu này để đạt band cao hơn.")}
+                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                      style={{
+                        background: "rgba(34, 197, 94, 0.08)",
+                        borderColor: "rgba(34, 197, 94, 0.3)",
+                        color: "rgb(21, 128, 61)"
+                      }}
+                    >
+                      🚀 Cải thiện câu này tốt hơn
+                    </button>
+                    <button
+                      onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
+                      className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                      style={{
+                        background: "var(--secondary)",
+                        borderColor: "var(--border)",
+                        color: "var(--muted-foreground)"
+                      }}
+                    >
+                      ➡️ Không, chuyển sang bước tiếp theo
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="flex flex-wrap gap-2 animate-fade-in">
+                  <button
+                    onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
+                    className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                    style={{
+                      background: "rgba(34, 197, 94, 0.08)",
+                      borderColor: "rgba(34, 197, 94, 0.3)",
+                      color: "rgb(21, 128, 61)"
+                    }}
+                  >
+                    🚀 Có, giúp tôi nâng band câu này
+                  </button>
+                  <button
+                    onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
+                    className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                    style={{
+                      background: "var(--secondary)",
+                      borderColor: "var(--border)",
+                      color: "var(--muted-foreground)"
+                    }}
+                  >
+                    ➡️ Không, chuyển sang bước tiếp theo
+                  </button>
+                </div>
+              );
+            })()}
 
             <div
               className="flex items-end gap-3 rounded-xl p-3"
