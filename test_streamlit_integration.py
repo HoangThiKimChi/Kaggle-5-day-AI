@@ -23,6 +23,13 @@ import uuid
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Load env variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass
+
 MOCK_MODE = os.environ.get("MOCK_GEMINI", "").strip() == "1"
 
 if MOCK_MODE:
@@ -31,8 +38,8 @@ if MOCK_MODE:
 else:
     API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if not API_KEY:
-        print("⚠️  GEMINI_API_KEY không tìm thấy. Chạy: source ~/.zshrc")
-        print("    Hoặc chạy mock: MOCK_GEMINI=1 python3 test_streamlit_integration.py")
+        print("⚠️  GEMINI_API_KEY không tìm thấy trong environment hoặc tệp .env.")
+        print("    Vui lòng kiểm tra lại tệp .env hoặc chạy mock: MOCK_GEMINI=1 python3 test_streamlit_integration.py")
         sys.exit(1)
     os.environ.setdefault("GOOGLE_API_KEY", API_KEY)
 

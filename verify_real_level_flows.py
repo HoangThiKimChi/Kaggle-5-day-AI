@@ -38,13 +38,13 @@ os.environ["GEMINI_API_KEY"] = API_KEY
 from app import run_turn_structured, create_runner
 
 def run_turn_with_delay(runner, session_id, user_id, prefixed_msg):
-    print("⏳ Đang gửi request tới Gemini (gemini-2.5-flash)...")
+    print("⏳ Đang gửi request tới Gemini (gemini-2.5-flash-lite)...")
     result = run_turn_structured(runner, session_id, user_id, prefixed_msg)
     return result
 
 def run_session_simulation(level: str, turns: list[str]) -> None:
     print("\n" + "=" * 80)
-    print(f"VERIFY REAL API: LEVEL {level} FLOW (gemini-2.5-flash)")
+    print(f"VERIFY REAL API: LEVEL {level} FLOW (gemini-2.5-flash-lite)")
     print("=" * 80)
 
     runner = create_runner()

@@ -20,6 +20,18 @@ from streamlit.delta_generator import DeltaGenerator
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Load env variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass
+
+# Forward GEMINI_API_KEY to GOOGLE_API_KEY for ADK internally
+api_key = os.environ.get("GEMINI_API_KEY", "")
+if api_key:
+    os.environ.setdefault("GOOGLE_API_KEY", api_key)
+
 # ── Mock mode ─────────────────────────────────────────────────────────────────
 MOCK_MODE = os.environ.get("MOCK_GEMINI", "").strip() == "1"
 

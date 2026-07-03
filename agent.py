@@ -21,6 +21,13 @@ import time
 # Ensure the Capstone directory is on the path so `import tools` works
 sys.path.insert(0, os.path.dirname(__file__))
 
+# Load env variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass
+
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai import types as genai_types
@@ -112,7 +119,7 @@ chủ đề không liên quan đến IELTS Writing Task 2), hãy:
 
 root_agent = Agent(
     name="essay_writing_coach",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-flash-lite",
     instruction=SYSTEM_PROMPT,
     tools=TOOLS,
     description=(

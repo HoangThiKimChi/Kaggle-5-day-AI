@@ -94,13 +94,9 @@ Capstone/
 
 ---
 
-## Trạng thái hiện tại (cập nhật 02/07/2026 tối)
+## Trạng thái hiện tại (cập nhật 03/07/2026 trưa)
 
-- ✅ `tools.py`, `agent.py` — hoàn thành, đã fix nhiều bug (session async,
-  thinking-mode empty response, model deprecated)
-- ✅ Giai đoạn 1 (3 điểm chặn cứng cho UI) — PASS bằng mock
-- ⏳ Cần làm sớm: verify Giai đoạn 1 bằng 3 request thật (đang chờ quota
-  reset sau khi hết 20 RPD)
-- 🔶 Đang làm: `app.py` (Giai đoạn 2), code bằng mock theo `ui_spec.md`
-- ⏳ Chưa làm: demo case thật (Opinion, Discussion, Adv/Dis), polish
-  Kaggle Notebook, submit
+- ✅ `tools.py`, `agent.py` — hoàn thành, đã đổi sang model `gemini-2.5-flash-lite` cho quota cao hơn và chạy ổn định.
+- ✅ Giai đoạn 1 (3 điểm chặn cứng cho UI) — PASS bằng cả Mock và Live API (đã test 6 requests thật thành công).
+- ✅ Giai đoạn 2 (`app.py`, `test_level_flows.py` và `verify_real_level_flows.py`) — hoàn thành, chạy thực tế phân luồng A2 và B1 chính xác.
+- ⏳ Chưa làm: quay video demo, deploy lên Streamlit Cloud, điền các link vào Writeup và submit Kaggle.
