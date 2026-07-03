@@ -691,33 +691,44 @@ def _render_essay_tab() -> None:
     st.markdown("#### 📝 Bài viết của bạn")
     st.caption("Tự gõ/dán nội dung của bạn vào từng phần — agent không viết hộ, chỉ hướng dẫn.")
 
-    # Selectbox to choose essay type (IELTS Task 2)
+    # Essay type: hiển thị kết quả agent tự xác định, không cần chọn tay
     essay_types = {
-        "opinion": "Quan điểm cá nhân (Opinion)",
-        "discussion": "Thảo luận hai quan điểm (Discussion)",
-        "problem_solution": "Vấn đề - Giải pháp (Problem - Solution)",
+        "opinion":                  "Quan điểm cá nhân (Opinion)",
+        "discussion":               "Thảo luận hai quan điểm (Discussion)",
+        "problem_solution":         "Vấn đề - Giải pháp (Problem - Solution)",
+        "adv_dis":                  "Lợi ích - Bất lợi (Advantages - Disadvantages)",
+        "two_part_question":        "Câu hỏi hai phần (Two-part question)",
         "advantages_disadvantages": "Lợi ích - Bất lợi (Advantages - Disadvantages)",
-        "two_part_question": "Câu hỏi hai phần (Two-part question)"
     }
-    
-    current_type = st.session_state.get("essay_type", "opinion")
-    if current_type not in essay_types:
-        current_type = "opinion"
-    
-    keys_list = list(essay_types.keys())
-    selected_index = keys_list.index(current_type)
-    
-    selected_type_key = st.selectbox(
-        "Chọn dạng bài luận (IELTS Task 2):",
-        options=keys_list,
-        format_func=lambda x: essay_types[x],
-        index=selected_index,
-        key="selectbox_essay_type_widget",
-    )
-    
-    if selected_type_key != st.session_state["essay_type"]:
-        st.session_state["essay_type"] = selected_type_key
-        st.rerun()
+
+    current_type = st.session_state.get("essay_type")
+    conf         = st.session_state.get("essay_type_confidence")
+
+    if current_type and current_type in essay_types:
+        conf_icon = CONFIDENCE_COLOR.get(conf or "low", "⚪")
+        label     = essay_types[current_type]
+        st.success(f"{conf_icon} **Dạng đề được xác định: {label}**")
+        if conf:
+            st.caption(f"Độ tin cậy: {conf} — Agent tự phân loại dựa trên đề bài bạn nhập ở Chat.")
+    else:
+        st.info("💡 Paste đề bài vào **Chat** — agent sẽ tự xác định dạng bài luận cho bạn.")
+
+    # Cho phép ghi đè thủ công nếu agent xác định sai
+    with st.expander("⚙️ Điều chỉnh dạng đề (nếu agent xác định sai)", expanded=False):
+        keys_list = list(essay_types.keys())[:5]  # bỏ alias advantages_disadvantages
+        fallback_type = current_type if current_type in keys_list else "opinion"
+        selected_type_key = st.selectbox(
+            "Chọn lại dạng bài luận:",
+            options=keys_list,
+            format_func=lambda x: essay_types[x],
+            index=keys_list.index(fallback_type),
+            key="selectbox_essay_type_widget",
+        )
+        if selected_type_key != st.session_state.get("essay_type"):
+            if st.button("✅ Xác nhận thay đổi", key="btn_override_essay_type"):
+                st.session_state["essay_type"] = selected_type_key
+                st.rerun()
+
 
     st.divider()
 
