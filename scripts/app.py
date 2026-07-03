@@ -380,7 +380,7 @@ def run_turn_structured(runner: InMemoryRunner, session_id: str, user_id: str, m
 def _init_state() -> None:
     defaults = {
         "messages": [],
-        "essay_type": "opinion",
+        "essay_type": None,
         "essay_type_confidence": None,
         "level": "B1",
         "current_section": None,
