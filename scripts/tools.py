@@ -51,7 +51,7 @@ _REF_CACHE: dict[str, str] = {}
 def _load_ref(filename: str) -> str:
     """Load a file from the references/ directory and cache it in memory."""
     if filename not in _REF_CACHE:
-        ref_dir = Path(__file__).parent / "references"
+        ref_dir = Path(__file__).parent.parent / "references"
         try:
             _REF_CACHE[filename] = (ref_dir / filename).read_text(encoding="utf-8")
         except FileNotFoundError:
@@ -980,10 +980,7 @@ def evaluate_essay(essay_text: str, essay_type: str) -> dict:
 
     # 2. Real API evaluation
     # Load Rubric JSON
-    rubric_path = Path(__file__).parent / "ielts_scoring_rubric.json"
-    if not rubric_path.exists():
-        # Try parent directory as fallback
-        rubric_path = Path(__file__).parent.parent / "ielts_scoring_rubric.json"
+    rubric_path = Path(__file__).parent.parent / "references" / "ielts_scoring_rubric.json"
     
     try:
         with open(rubric_path, "r", encoding="utf-8") as f:
