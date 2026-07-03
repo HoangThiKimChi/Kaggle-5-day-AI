@@ -339,12 +339,13 @@ export default function App() {
   }
 
 
-  async function handleSend() {
-    if (!input.trim()) return;
+  async function handleSend(customText?: string) {
+    const textVal = customText !== undefined ? customText.trim() : input.trim();
+    if (!textVal) return;
     const userMsg: Message = {
       id: Date.now().toString(),
       role: "user",
-      content: input.trim(),
+      content: textVal,
       timestamp: new Date(),
     };
     const nextMsgs = [...messages, userMsg];
@@ -972,9 +973,37 @@ export default function App() {
 
           {/* Input */}
           <div
-            className="shrink-0 p-4 border-t"
+            className="shrink-0 p-4 border-t flex flex-col gap-3"
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
+            {/* Quick Actions Option Buttons */}
+            {!isTyping && messages.length > 1 && messages[messages.length - 1].role === "assistant" && (
+              <div className="flex flex-wrap gap-2 animate-fade-in">
+                <button
+                  onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
+                  className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                  style={{
+                    background: "rgba(34, 197, 94, 0.08)",
+                    borderColor: "rgba(34, 197, 94, 0.3)",
+                    color: "rgb(21, 128, 61)"
+                  }}
+                >
+                  🚀 Có, giúp tôi nâng band câu này
+                </button>
+                <button
+                  onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
+                  className="text-xs px-3.5 py-2 rounded-full border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5"
+                  style={{
+                    background: "var(--secondary)",
+                    borderColor: "var(--border)",
+                    color: "var(--muted-foreground)"
+                  }}
+                >
+                  ➡️ Không, chuyển sang bước tiếp theo
+                </button>
+              </div>
+            )}
+
             <div
               className="flex items-end gap-3 rounded-xl p-3"
               style={{ background: "var(--input-background)", border: "1px solid var(--border)" }}
@@ -1086,31 +1115,55 @@ export default function App() {
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Checklist yêu cầu cần đạt ({activeSection}):</p>
                   {instructions.length > 0 ? (
                     <div className="flex flex-col gap-2">
-                      {instructions.map((step, idx) => {
-                        const completed = isStepCompleted(step);
-                        return (
-                          <div 
-                            key={idx} 
-                            className="text-xs leading-relaxed p-3 rounded-lg border transition-all flex items-start gap-2.5"
-                            style={{
-                              background: completed ? "rgba(34, 197, 94, 0.05)" : "var(--secondary)",
-                              borderColor: completed ? "rgba(34, 197, 94, 0.2)" : "var(--border)",
-                              color: "var(--foreground)"
-                            }}
-                          >
-                            {completed ? (
-                              <CheckCircle2 size={15} className="text-green-500 mt-0.5 shrink-0" />
-                            ) : (
-                              <span className="w-4 h-4 rounded-full bg-muted text-[9px] font-bold flex items-center justify-center text-muted-foreground mt-0.5 shrink-0">
-                                {idx + 1}
-                              </span>
-                            )}
-                            <div className="flex-1">
-                              {formatMessage(step)}
+                      {(() => {
+                        const firstIncompleteIdx = instructions.findIndex(step => !isStepCompleted(step));
+                        return instructions.map((step, idx) => {
+                          const completed = isStepCompleted(step);
+                          const isActive = idx === firstIncompleteIdx;
+                          return (
+                            <div 
+                              key={idx} 
+                              className={`text-xs leading-relaxed p-3.5 rounded-lg border transition-all duration-300 flex items-start gap-2.5 ${isActive ? 'ring-2 ring-primary ring-offset-1 scale-[1.01] shadow-sm' : ''}`}
+                              style={{
+                                background: completed 
+                                  ? "rgba(34, 197, 94, 0.03)" 
+                                  : isActive 
+                                    ? "var(--card)" 
+                                    : "var(--secondary)",
+                                borderColor: completed 
+                                  ? "rgba(34, 197, 94, 0.2)" 
+                                  : isActive 
+                                    ? "var(--primary)" 
+                                    : "var(--border)",
+                                color: completed 
+                                  ? "var(--muted-foreground)" 
+                                  : "var(--foreground)",
+                                opacity: completed ? 0.75 : isActive ? 1 : 0.65
+                              }}
+                            >
+                              {completed ? (
+                                <CheckCircle2 size={15} className="text-green-500 mt-0.5 shrink-0" />
+                              ) : isActive ? (
+                                <span className="w-5 h-5 rounded-full bg-primary text-[10px] font-bold flex items-center justify-center text-primary-foreground mt-0.5 shrink-0 animate-pulse">
+                                  ✏️
+                                </span>
+                              ) : (
+                                <span className="w-4 h-4 rounded-full bg-muted text-[9px] font-bold flex items-center justify-center text-muted-foreground mt-0.5 shrink-0">
+                                  {idx + 1}
+                                </span>
+                              )}
+                              <div className="flex-1">
+                                {isActive && (
+                                  <span className="inline-block text-[9px] font-extrabold uppercase bg-primary text-primary-foreground px-1.5 py-0.5 rounded mb-1.5 tracking-wider">
+                                    👉 Đang làm
+                                  </span>
+                                )}
+                                {formatMessage(step)}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
+                          );
+                        });
+                      })()}
                     </div>
                   ) : (
                     <div
