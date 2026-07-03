@@ -2,10 +2,11 @@
 verify_real_level_flows.py
 ==========================
 Chạy thử nghiệm E2E thật (4 turns, 6 API requests thật)
-Sử dụng chính thức model 'gemini-2.5-flash-lite' từ agent.py và tools.py.
+Sử dụng chính thức model 'gemini-2.5-flash' từ agent.py và tools.py.
+Bắt buộc ghi đè biến môi trường cũ bằng key trong .env.
 
 Chạy:
-    source ~/.zshrc && python3 verify_real_level_flows.py
+    python3 verify_real_level_flows.py
 """
 
 import os
@@ -17,22 +18,33 @@ sys.path.insert(0, os.path.dirname(__file__))
 # Tắt mock mode
 os.environ["MOCK_GEMINI"] = "0"
 
+# Bắt buộc ghi đè các biến môi trường cũ bằng giá trị trong .env
+try:
+    from dotenv import load_dotenv
+    load_dotenv(override=True)
+except ImportError:
+    pass
+
 API_KEY = os.environ.get("GEMINI_API_KEY", "")
 if not API_KEY:
-    print("⚠️  GEMINI_API_KEY không tìm thấy. Không thể test thật. Đang thoát...")
+    print("⚠️  GEMINI_API_KEY không tìm thấy trong environment hoặc tệp .env.")
+    print("Đang thoát...")
     sys.exit(1)
 os.environ.setdefault("GOOGLE_API_KEY", API_KEY)
+
+# Đồng bộ API key cho SDK
+os.environ["GEMINI_API_KEY"] = API_KEY
 
 from app import run_turn_structured, create_runner
 
 def run_turn_with_delay(runner, session_id, user_id, prefixed_msg):
-    print("⏳ Đang gửi request tới Gemini (gemini-2.5-flash-lite)...")
+    print("⏳ Đang gửi request tới Gemini (gemini-2.5-flash)...")
     result = run_turn_structured(runner, session_id, user_id, prefixed_msg)
     return result
 
 def run_session_simulation(level: str, turns: list[str]) -> None:
     print("\n" + "=" * 80)
-    print(f"VERIFY REAL API: LEVEL {level} FLOW (gemini-2.5-flash-lite)")
+    print(f"VERIFY REAL API: LEVEL {level} FLOW (gemini-2.5-flash)")
     print("=" * 80)
 
     runner = create_runner()
