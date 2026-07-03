@@ -217,14 +217,11 @@ class GeminiServiceClient:
 
     @staticmethod
     def safe_parse_json(raw: str):
-        """Parse raw response JSON safely, rejecting sentinel error dicts."""
+        """Parse raw response JSON safely."""
         if not raw:
             return None
         try:
-            parsed = json.loads(raw)
-            if isinstance(parsed, dict) and "_api_error" in parsed:
-                return None
-            return parsed
+            return json.loads(raw)
         except json.JSONDecodeError:
             return None
 
@@ -473,13 +470,23 @@ class PromptParaphraser:
         raw = GeminiServiceClient.call_gemini(user_msg, system_instr)
         parsed = GeminiServiceClient.safe_parse_json(raw)
 
-        if parsed and isinstance(parsed, dict) and "paraphrases" in parsed:
-            parsed["original"] = prompt
-            parsed["level"] = level
-            return parsed
+        if parsed and isinstance(parsed, dict):
+            if "_api_error" in parsed:
+                return {
+                    "error": f"Lỗi gọi Gemini: {parsed.get('_api_error')} - {parsed.get('_api_message')}",
+                    "original": prompt,
+                    "level": level,
+                    "paraphrases": [],
+                    "explanation": "",
+                    "common_synonyms": {},
+                }
+            if "paraphrases" in parsed:
+                parsed["original"] = prompt
+                parsed["level"] = level
+                return parsed
 
         return {
-            "error": "Không thể tạo paraphrase. Vui lòng thử lại.",
+            "error": f"Không thể tạo paraphrase. Vui lòng thử lại. Raw response: {str(raw)[:100]}",
             "original": prompt,
             "level": level,
             "paraphrases": [],
