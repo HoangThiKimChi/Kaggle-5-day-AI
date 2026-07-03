@@ -1,5 +1,5 @@
 """
-FastAPI Server — IELTS Writing Coach Backend
+FastAPI Server — IELTS Writing Coach Backend (Reboot: 2026-07-03)
 ============================================
 Exposes API endpoints for React frontend:
 - POST /api/chat: runs ADK Agent turn
