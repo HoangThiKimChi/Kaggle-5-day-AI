@@ -104,6 +104,15 @@ export default function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
+  // Auto-resize input textarea to fit content dynamically
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
+  }, [input]);
+
+
   async function handleSend() {
     if (!input.trim()) return;
     const userMsg: Message = {
@@ -114,6 +123,9 @@ export default function App() {
     };
     setMessages((m) => [...m, userMsg]);
     setInput("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setIsTyping(true);
 
     try {
