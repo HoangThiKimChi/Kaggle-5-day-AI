@@ -188,32 +188,41 @@ class GeminiServiceClient:
 
         client = genai.Client(api_key=api_key)
         full_prompt = f"{system_instruction}\n\n{user_prompt}" if system_instruction else user_prompt
-        try:
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_mime_type="application/json",
-                ),
-            )
-            # Fast path
-            if response.text:
-                return response.text
+        
+        import time
+        for attempt in range(4):
+            try:
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                    ),
+                )
+                # Fast path
+                if response.text:
+                    return response.text
 
-            # Fallback for thought content separation in candidates
-            if response.candidates:
-                cand = response.candidates[0]
-                if cand.content and cand.content.parts:
-                    texts = [
-                        p.text
-                        for p in cand.content.parts
-                        if p.text and not getattr(p, "thought", False)
-                    ]
-                    if texts:
-                        return "".join(texts)
-            return ""
-        except Exception as exc:
-            return json.dumps({"_api_error": type(exc).__name__, "_api_message": str(exc)[:300]})
+                # Fallback for thought content separation in candidates
+                if response.candidates:
+                    cand = response.candidates[0]
+                    if cand.content and cand.content.parts:
+                        texts = [
+                            p.text
+                            for p in cand.content.parts
+                            if p.text and not getattr(p, "thought", False)
+                        ]
+                        if texts:
+                            return "".join(texts)
+                return ""
+            except Exception as exc:
+                err_str = str(exc)
+                # Check for rate limit / ResourceExhausted (429)
+                if "429" in err_str or "resourceexhausted" in err_str.lower() or "limit" in err_str.lower():
+                    if attempt < 3:
+                        time.sleep(2 * (attempt + 1))  # 2s, 4s, 6s backoff
+                        continue
+                return json.dumps({"_api_error": type(exc).__name__, "_api_message": err_str[:300]})
 
     @staticmethod
     def safe_parse_json(raw: str):
@@ -795,8 +804,9 @@ class IELTSEssayEvaluator:
                     if "503" in err_str or "UNAVAILABLE" in err_str:
                         time.sleep(2 ** (attempt + 1))
                         continue
-                    elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
-                        break
+                    elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "exhausted" in err_str.lower():
+                        time.sleep(2 * (attempt + 1))
+                        continue
 
         err_msg = str(last_err) if last_err else "Lỗi kết nối hoặc API hết quota."
         return {
