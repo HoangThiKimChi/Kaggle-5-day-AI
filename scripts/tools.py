@@ -682,19 +682,29 @@ class IELTSEssayEvaluator:
         except Exception:
             rubric_json = "{}"
 
+        grammar_path = Path(__file__).parent.parent / "references" / "sentence_structures.md"
+        try:
+            with open(grammar_path, "r", encoding="utf-8") as f:
+                grammar_txt = f.read()
+        except Exception:
+            grammar_txt = ""
+
         prompt = (
             f"You are an expert IELTS Writing Task 2 examiner.\n"
             f"Evaluate the following student essay of type '{essay_type}' based on the provided IELTS simplified scoring rubric (from band 1.0 to 6.5).\n\n"
             f"Here is the simplified IELTS scoring rubric (mapping band scores to descriptions of student writing):\n"
             f"{rubric_json}\n\n"
+            f"Here is the grammar reference containing target sentence structures we coached the student to use:\n"
+            f"{grammar_txt}\n\n"
             f"Student Essay to evaluate:\n"
             f"\"\"\"\n{essay_text}\n\"\"\"\n\n"
             f"Guidelines for your evaluation:\n"
             f"1. Carefully analyze the student's essay.\n"
             f"2. For each of the four criteria (task_response, coherence_cohesion, lexical_resource, grammatical_range), assign a band score.\n"
-            f"3. The band score MUST be a float number chosen STRICTLY from the enum: [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5]. Do NOT assign any other score.\n"
-            f"4. For each criterion, provide detailed 'feedback' (1-3 sentences) in Vietnamese explaining why this score was given, and 'suggestions' (1-3 items) in Vietnamese offering actionable advice for the student to improve.\n"
-            f"5. All text in 'feedback' and 'suggestions' must be in Vietnamese."
+            f"3. Specifically for 'grammatical_range' (Ngữ pháp), check if the student has attempted or correctly used the patterns defined in the grammar reference (such as 'Despite/In spite of', concession, active/passive voice, etc.). In the feedback and suggestions for 'grammatical_range', mention which specific target structures they used correctly and which ones they should attempt to use to improve their score.\n"
+            f"4. The band score MUST be a float number chosen STRICTLY from the enum: [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5]. Do NOT assign any other score.\n"
+            f"5. For each criterion, provide detailed 'feedback' (1-3 sentences) in Vietnamese explaining why this score was given, and 'suggestions' (1-3 items) in Vietnamese offering actionable advice for the student to improve.\n"
+            f"6. All text in 'feedback' and 'suggestions' must be in Vietnamese."
         )
 
         api_key = os.environ.get("GEMINI_API_KEY", "")
