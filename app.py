@@ -14,6 +14,7 @@ import asyncio
 import os
 import sys
 import uuid
+import hashlib
 
 import streamlit as st
 from streamlit.delta_generator import DeltaGenerator
@@ -37,6 +38,7 @@ MOCK_MODE = os.environ.get("MOCK_GEMINI", "").strip() == "1"
 
 # ── Import agent (lazy: chỉ import 1 lần khi cần) ────────────────────────────
 from agent import create_runner, ensure_session
+from tools import evaluate_essay
 from google.adk.runners import InMemoryRunner
 from google.genai import types as genai_types
 
@@ -378,7 +380,7 @@ def run_turn_structured(runner: InMemoryRunner, session_id: str, user_id: str, m
 def _init_state() -> None:
     defaults = {
         "messages": [],
-        "essay_type": None,
+        "essay_type": "opinion",
         "essay_type_confidence": None,
         "level": "B1",
         "current_section": None,
@@ -390,6 +392,8 @@ def _init_state() -> None:
         "adk_user_id": "streamlit_user",
         "pending_retry": False,
         "last_user_msg": "",
+        "essay_evaluation": None,
+        "evaluation_cache": {},
     }
     for k, v in defaults.items():
         if k not in st.session_state:
@@ -687,6 +691,36 @@ def _render_essay_tab() -> None:
     st.markdown("#### 📝 Bài viết của bạn")
     st.caption("Tự gõ/dán nội dung của bạn vào từng phần — agent không viết hộ, chỉ hướng dẫn.")
 
+    # Selectbox to choose essay type (IELTS Task 2)
+    essay_types = {
+        "opinion": "Quan điểm cá nhân (Opinion)",
+        "discussion": "Thảo luận hai quan điểm (Discussion)",
+        "problem_solution": "Vấn đề - Giải pháp (Problem - Solution)",
+        "advantages_disadvantages": "Lợi ích - Bất lợi (Advantages - Disadvantages)",
+        "two_part_question": "Câu hỏi hai phần (Two-part question)"
+    }
+    
+    current_type = st.session_state.get("essay_type", "opinion")
+    if current_type not in essay_types:
+        current_type = "opinion"
+    
+    keys_list = list(essay_types.keys())
+    selected_index = keys_list.index(current_type)
+    
+    selected_type_key = st.selectbox(
+        "Chọn dạng bài luận (IELTS Task 2):",
+        options=keys_list,
+        format_func=lambda x: essay_types[x],
+        index=selected_index,
+        key="selectbox_essay_type_widget",
+    )
+    
+    if selected_type_key != st.session_state["essay_type"]:
+        st.session_state["essay_type"] = selected_type_key
+        st.rerun()
+
+    st.divider()
+
     for sec in SECTIONS:
         status = st.session_state["sections_status"][sec]
         icon = STATUS_ICON[status]
@@ -800,6 +834,114 @@ def _render_essay_tab() -> None:
         st.caption("_Chưa có nội dung nào — hãy viết vào các ô bên trên._")
 
 
+def _render_evaluation_tab() -> None:
+    st.markdown("#### 📊 Đánh giá bài viết (IELTS Band 1.0 – 6.5)")
+    st.caption("Chấm điểm bài viết của bạn dựa trên thang rubric rút gọn của IELTS Writing Task 2.")
+
+    # 1. Combine draft text and calculate word count
+    combined_text = "\n\n".join(
+        st.session_state["essay_draft"][s].strip()
+        for s in SECTIONS
+        if st.session_state["essay_draft"][s].strip()
+    )
+    word_count = len(combined_text.split())
+
+    # Calculate cache key
+    essay_type = st.session_state.get("essay_type", "opinion")
+    cache_key = hashlib.sha256((combined_text + essay_type).encode("utf-8")).hexdigest()
+
+    # 2. Check if already evaluated
+    eval_result = st.session_state.get("essay_evaluation")
+
+    # Render word count warning if < 50
+    can_evaluate = word_count >= 50
+
+    if not can_evaluate:
+        st.warning(f"⚠️ Cần tối thiểu 50 từ để chấm điểm (hiện tại: {word_count} từ). Hãy viết thêm trong tab 'Bài viết'.")
+
+    # Display evaluation interface
+    if not eval_result:
+        # State: Not evaluated yet
+        st.markdown(
+            "_Hãy hoàn thành bài viết của bạn bên tab 'Bài viết' rồi nhấn nút dưới đây để nhận đánh giá chi tiết._"
+        )
+        if st.button("📊 Chấm điểm bài viết", key="btn_eval_initial", disabled=not can_evaluate):
+            # Check cache first
+            if cache_key in st.session_state["evaluation_cache"]:
+                st.session_state["essay_evaluation"] = st.session_state["evaluation_cache"][cache_key]
+                st.rerun()
+            else:
+                with st.spinner("Hệ thống đang chấm điểm bài viết của bạn..."):
+                    result = evaluate_essay(combined_text, essay_type)
+                    if result.get("error"):
+                        st.error(result.get("message"))
+                    else:
+                        st.session_state["essay_evaluation"] = result
+                        st.session_state["evaluation_cache"][cache_key] = result
+                        st.rerun()
+    else:
+        # State: Already evaluated, show dashboard!
+        overall_band = eval_result["overall_band"]
+        criteria = eval_result["criteria"]
+        words = eval_result.get("word_count", word_count)
+
+        # Overall Band display
+        st.subheader("🏆 Kết quả đánh giá chung")
+        
+        # Display overall band score
+        st.metric(label="Overall Band Score", value=f"{overall_band} / 6.5")
+        st.progress(overall_band / 6.5)
+        st.caption(f"Tổng số từ đã chấm: **{words} từ** | Dạng đề: **{essay_type.replace('_', ' ').title()}**")
+        
+        st.divider()
+
+        # Detailed criteria scores
+        st.subheader("🎯 Điểm số chi tiết theo tiêu chí")
+        
+        criteria_labels = {
+            "task_response": "Task Response (Đáp ứng yêu cầu)",
+            "coherence_cohesion": "Coherence & Cohesion (Mạch lạc & Liên kết)",
+            "lexical_resource": "Lexical Resource (Từ vựng)",
+            "grammatical_range": "Grammatical Range (Ngữ pháp)"
+        }
+
+        for key, label in criteria_labels.items():
+            crit_data = criteria.get(key, {})
+            band = crit_data.get("band", 1.0)
+            
+            st.markdown(f"**{label}: {band} / 6.5**")
+            st.progress(band / 6.5)
+            
+            with st.expander(f"🔍 Xem nhận xét tiêu chí {label.split(' (')[0]}", expanded=False):
+                st.markdown(f"**Nhận xét:** {crit_data.get('feedback', '')}")
+                st.markdown("**Gợi ý cải thiện:**")
+                suggestions = crit_data.get("suggestions", [])
+                if suggestions:
+                    for sug in suggestions:
+                        st.write(f"- {sug}")
+                else:
+                    st.write("_Không có gợi ý cụ thể._")
+            st.write("")
+
+        st.divider()
+
+        # Re-evaluate button
+        if st.button("🔄 Chấm điểm lại", key="btn_eval_re", disabled=not can_evaluate):
+            if cache_key in st.session_state["evaluation_cache"]:
+                st.session_state["essay_evaluation"] = st.session_state["evaluation_cache"][cache_key]
+                st.toast("Bài viết chưa thay đổi, hiển thị kết quả gần nhất.", icon="ℹ️")
+                st.rerun()
+            else:
+                with st.spinner("Hệ thống đang chấm điểm lại bài viết của bạn..."):
+                    result = evaluate_essay(combined_text, essay_type)
+                    if result.get("error"):
+                        st.error(result.get("message"))
+                    else:
+                        st.session_state["essay_evaluation"] = result
+                        st.session_state["evaluation_cache"][cache_key] = result
+                        st.rerun()
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Main layout
 # ─────────────────────────────────────────────────────────────────────────────
@@ -815,11 +957,13 @@ def main() -> None:
 
     with col_panel:
         st.markdown("### 📖 Kết quả")
-        tab_guide, tab_essay = st.tabs(["💡 Hướng dẫn", "📝 Bài viết"])
+        tab_guide, tab_essay, tab_eval = st.tabs(["💡 Hướng dẫn", "📝 Bài viết", "📊 Chấm điểm"])
         with tab_guide:
             _render_guidance_tab()
         with tab_essay:
             _render_essay_tab()
+        with tab_eval:
+            _render_evaluation_tab()
 
 
 if __name__ == "__main__":

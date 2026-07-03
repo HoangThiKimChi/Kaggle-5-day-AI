@@ -1,0 +1,122 @@
+{
+  "rubric_name": "IELTS Writing Task 2 - Simplified Rubric (Beginner to near-B2)",
+  "band_scale": "1.0 to 6.5, in 0.5 increments",
+  "display_score_formula": "round((band_score - 1.0) / 5.5 * 9 + 1, 1)",
+  "criteria_keys": ["task_response", "coherence_cohesion", "lexical_resource", "grammatical_range"],
+  "overall_band_rule": "Average the 4 criteria band scores, then round to nearest 0.5 using standard IELTS rounding (round .25 up to nearest .5, e.g. 5.25 -> 5.5, 5.0 stays 5.0).",
+  "levels": [
+    {
+      "level_name": "So cap (Beginner)",
+      "cefr": "Below A2",
+      "sub_bands": [
+        {
+          "band": 1.0,
+          "task_response": "Lac de hoac khong tra loi duoc yeu cau; khong co luan diem; bai qua ngan (<80 tu)",
+          "coherence_cohesion": "Khong chia doan hoac chi 1 doan duy nhat; cau roi rac, gan nhu khong co tu noi",
+          "lexical_resource": "Tu vung cuc ky han che, lap tu lien tuc; loi chinh ta nhieu lam kho hieu nghia",
+          "grammatical_range": "Cau gan nhu khong co cau truc hoan chinh; loi chia dong tu/mao tu nghiem trong, sai lech nghia"
+        },
+        {
+          "band": 1.5,
+          "task_response": "Nhu band 1.0, co the co 1 cau lien quan de nhung khong phat trien",
+          "coherence_cohesion": "Nhu band 1.0",
+          "lexical_resource": "Nhu band 1.0, von tu it hon 50 tu khac nhau",
+          "grammatical_range": "Nhu band 1.0"
+        },
+        {
+          "band": 2.0,
+          "task_response": "Co co gang tra loi de nhung chi neu 1-2 y roi rac, khong phat trien; nhieu doan lac huong",
+          "coherence_cohesion": "Co chia doan nhung khong theo logic ro; dung rat it tu noi co ban (and, but)",
+          "lexical_resource": "Tu vung co ban (basic words), van lap nhieu; loi chinh ta/word formation gay can tro",
+          "grammatical_range": "Chi dung duoc cau don; loi ngu phap co ban day dac nhung bat dau tao duoc cau co nghia"
+        },
+        {
+          "band": 2.5,
+          "task_response": "Tuong tu band 2.0, y ro hon mot chut nhung van thieu vi du",
+          "coherence_cohesion": "Tuong tu band 2.0",
+          "lexical_resource": "Tuong tu band 2.0, it loi chinh ta hon",
+          "grammatical_range": "Tuong tu band 2.0, mot vai cau don chinh xac"
+        },
+        {
+          "band": 3.0,
+          "task_response": "Tra loi mot phan de bai, y con rat han che va chua ro rang",
+          "coherence_cohesion": "Bat dau co logic don gian giua cac cau nhung con roi",
+          "lexical_resource": "Von tu rat han che, error co the lam sai lech thong diep",
+          "grammatical_range": "Cau don la chu dao, loi ngu phap va dau cau chiem uu the"
+        },
+        {
+          "band": 3.5,
+          "task_response": "Co co gang tra loi de nhung chi neu 1-2 y roi rac, khong phat trien; nhieu doan lac huong",
+          "coherence_cohesion": "Co chia doan nhung khong theo logic ro; dung rat it tu noi co ban (and, but)",
+          "lexical_resource": "Tu vung co ban, van lap nhieu; loi chinh ta/word formation gay can tro nhung it hon band 2.0",
+          "grammatical_range": "Chi dung duoc cau don, bat dau xuat hien cau ghep don gian nhung nhieu loi"
+        }
+      ]
+    },
+    {
+      "level_name": "Tien trung cap (Elementary/A2)",
+      "cefr": "A2",
+      "sub_bands": [
+        {
+          "band": 4.0,
+          "task_response": "Tra loi de o muc toi thieu; 1 luan diem chinh, thieu vi du/lap luan cu the; ~120-150 tu",
+          "coherence_cohesion": "Co chia doan (intro/body/conclusion) nhung sap xep chua hop ly; linking words lap lai may moc",
+          "lexical_resource": "Tu vung co ban, doi khi dung sai nghia/khong hop van phong",
+          "grammatical_range": "Cau don chu dao, thu cau ghep (and/but/because) nhung loi nhieu"
+        },
+        {
+          "band": 4.5,
+          "task_response": "Tra loi du cac phan de bai nhung phat trien y con so sai; co 1-2 vi du don gian; ~150-200 tu",
+          "coherence_cohesion": "Chia doan ro hon, moi doan co 1 y; dung them linking words co ban (also, because, so) du doi khi sai cho",
+          "lexical_resource": "Tu vung co ban nhung chon tu chinh xac hon; bat dau co collocation don gian dung",
+          "grammatical_range": "Cau ghep dung on dinh hon; bat dau thu cau phuc don gian, loi van pho bien nhung khong luon can tro nghia"
+        }
+      ]
+    },
+    {
+      "level_name": "Trung cap (Intermediate/B1)",
+      "cefr": "B1",
+      "sub_bands": [
+        {
+          "band": 5.0,
+          "task_response": "De cap du cac phan yeu cau; co quan diem nhung chua nhat quan xuyen suot; y con han che, it vi du cu the; ~200-220 tu",
+          "coherence_cohesion": "Co to chuc tong the nhung progression chua ro; referencing doi khi gay kho hieu",
+          "lexical_resource": "Tu vung du dung cho chu de nhung con hep; mot so loi spelling/word formation khong dang ke",
+          "grammatical_range": "Ket hop cau don va cau phuc nhung cau phuc con loi nhieu hon cau don"
+        },
+        {
+          "band": 5.5,
+          "task_response": "Quan diem ro rang va giu nhat quan xuyen suot; luan diem co vi du ho tro du chua phat trien sau; dat ~250 tu",
+          "coherence_cohesion": "To chuc mach lac hon, moi doan 1 y chinh ro rang; dung da dang hon linking words (however, in addition, for example) du doi khi hoi may moc",
+          "lexical_resource": "Bat dau thu tu vung it pho bien hon; collocation dung nhieu hon; loi chinh ta hiem",
+          "grammatical_range": "Cau phuc dung tu nhien hon, ty le loi giam ro; mot so loi ngu phap/dau cau nhung hiem khi gay hieu lam"
+        }
+      ]
+    },
+    {
+      "level_name": "Can trung-cao (Upper-Int approaching / can B2)",
+      "cefr": "B1+ / near B2",
+      "sub_bands": [
+        {
+          "band": 6.0,
+          "task_response": "De cap day du, phat trien y kha ky voi vi du lien quan; doi luc lap luan hoi tong quat nhung van bam de",
+          "coherence_cohesion": "Progression ro rang toan bai; cohesive devices dung hieu qua du doi cho hoi cung",
+          "lexical_resource": "Tu vung kha da dang, collocation chinh xac phan lon; dung synonym de tranh lap",
+          "grammatical_range": "Da dang cau truc phuc (menh de quan he, dieu kien, bi dong); phan lon cau khong loi"
+        },
+        {
+          "band": 6.5,
+          "task_response": "Luan diem phat trien tot, vi du cu the va lien quan chat che; giu trong tam xuyen suot bai",
+          "coherence_cohesion": "Chuyen y tu nhien, referencing chinh xac; cau truc doan van chat che, gan nhu khong gay kho hieu",
+          "lexical_resource": "Von tu linh hoat hon, mot so tu it pho bien dung dung ngu canh; loi chinh ta/word formation hiem gap",
+          "grammatical_range": "Kiem soat ngu phap va dau cau tot, chi con loi nho/le te; linh hoat chuyen doi giua cac loai cau"
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Thang nay dung o band 6.5 vi target user la zero den can B2, khong can mo ta band 7-9 (advanced/native-like).",
+    "Agent nen cham rieng 4 tieu chi truoc, sau do tinh trung binh cong va lam tron theo quy tac IELTS chuan de ra overall band.",
+    "Display score chi dung de hien thi nhanh (progress bar/badge), band le 0.5 la so lieu chinh de feedback chi tiet."
+  ]
+}

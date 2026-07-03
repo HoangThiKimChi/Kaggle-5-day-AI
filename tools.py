@@ -897,6 +897,186 @@ def enrich_vocabulary(text: str, topic: str = "") -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Essay Evaluation Tool
+# ---------------------------------------------------------------------------
+
+from pydantic import BaseModel, Field
+from typing import List
+
+class CriterionEvaluation(BaseModel):
+    band: float = Field(..., description="Điểm số lẻ từ 1.0 đến 6.5 (bước nhảy 0.5)")
+    feedback: str = Field(..., description="Nhận xét ngắn gọn bằng tiếng Việt")
+    suggestions: List[str] = Field(..., description="1-3 gợi ý cụ thể để cải thiện nâng band, bằng tiếng Việt")
+
+class EssayEvaluationResponse(BaseModel):
+    task_response: CriterionEvaluation
+    coherence_cohesion: CriterionEvaluation
+    lexical_resource: CriterionEvaluation
+    grammatical_range: CriterionEvaluation
+
+
+def ielts_round(avg: float) -> float:
+    """Round-half-up to nearest 0.5, theo chuẩn IELTS."""
+    import math
+    return math.floor(avg * 2 + 0.5) / 2
+
+
+def evaluate_essay(essay_text: str, essay_type: str) -> dict:
+    """Đánh giá và chấm điểm toàn diện bài viết IELTS Writing Task 2.
+
+    Chỉ chấm điểm trong phạm vi 1.0 đến 6.5 theo bước nhảy 0.5 cho 4 tiêu chí.
+    Tính điểm Overall Band làm tròn theo chuẩn IELTS.
+
+    Args:
+        essay_text: Toàn bộ bài luận của học viên cần đánh giá.
+        essay_type: Dạng bài luận (opinion, discussion, problem_solution, advantages_disadvantages, two_part_question).
+
+    Returns:
+        Một dict chứa overall_band, điểm chi tiết từng tiêu chí, số từ và trạng thái lỗi.
+    """
+    # 1. Mock mode check
+    if os.environ.get("MOCK_GEMINI", "").strip() == "1":
+        words = len(essay_text.split())
+        return {
+            "overall_band": 5.0,
+            "criteria": {
+                "task_response": {
+                    "band": 5.0,
+                    "feedback": "Bài viết đã trả lời đầy đủ các phần của câu hỏi đề bài đưa ra. Tuy nhiên các ý tưởng phân tích còn tương đối đơn giản và thiếu ví dụ thực tế thuyết phục để làm nổi bật luận điểm.",
+                    "suggestions": [
+                        "Hãy bổ sung thêm các ví dụ thực tế (ví dụ như từ trải nghiệm cá nhân hoặc số liệu chung) để củng cố luận điểm.",
+                        "Phát triển sâu hơn các nguyên nhân/giải pháp thay vì chỉ liệt kê chung chung."
+                    ]
+                },
+                "coherence_cohesion": {
+                    "band": 5.0,
+                    "feedback": "Có bố cục rõ ràng gồm đầy đủ Mở bài, Thân bài và Kết bài. Tuy nhiên, sự liên kết giữa các câu trong đoạn còn hơi gượng gạo và dùng lặp lại một số từ nối máy móc.",
+                    "suggestions": [
+                        "Sử dụng đa dạng các trạng từ liên kết như 'Furthermore', 'Consequently', 'On the other hand' thay vì lặp lại 'And', 'But'.",
+                        "Đảm bảo mỗi đoạn thân bài có một câu chủ đề (Topic Sentence) rõ ràng ở đầu đoạn."
+                    ]
+                },
+                "lexical_resource": {
+                    "band": 5.0,
+                    "feedback": "Vốn từ vựng tương đối đủ dùng cho chủ đề này, người học hiểu nghĩa từ. Song, từ vựng còn ở mức cơ bản, nhiều từ bị lặp lại nhiều lần (như 'good', 'important').",
+                    "suggestions": [
+                        "Sử dụng các từ đồng nghĩa học thuật hơn (ví dụ: 'crucial', 'significant' thay cho 'important').",
+                        "Học và áp dụng thêm các cụm từ (collocations) tự nhiên liên quan đến chủ đề."
+                    ]
+                },
+                "grammatical_range": {
+                    "band": 5.0,
+                    "feedback": "Kết hợp được câu đơn và câu ghép cơ bản tương đối tốt. Tuy nhiên, khi thử viết các câu phức dài phức tạp thì vẫn còn mắc lỗi chia động từ hoặc dùng sai mệnh đề quan hệ.",
+                    "suggestions": [
+                        "Kiểm tra kỹ chia động từ số ít/số nhiều và các thì của câu.",
+                        "Luyện tập viết các cấu trúc câu phức phổ biến như câu điều kiện (If) hoặc mệnh đề quan hệ (Which/Who)."
+                    ]
+                }
+            },
+            "essay_type": essay_type,
+            "word_count": words,
+            "error": False
+        }
+
+    # 2. Real API evaluation
+    # Load Rubric JSON
+    rubric_path = Path(__file__).parent / "ielts_scoring_rubric.json"
+    if not rubric_path.exists():
+        # Try parent directory as fallback
+        rubric_path = Path(__file__).parent.parent / "ielts_scoring_rubric.json"
+    
+    try:
+        with open(rubric_path, "r", encoding="utf-8") as f:
+            rubric_json = f.read()
+    except Exception:
+        rubric_json = "{}"
+
+    # Build prompt
+    prompt = (
+        f"You are an expert IELTS Writing Task 2 examiner.\n"
+        f"Evaluate the following student essay of type '{essay_type}' based on the provided IELTS simplified scoring rubric (from band 1.0 to 6.5).\n\n"
+        f"Here is the simplified IELTS scoring rubric (mapping band scores to descriptions of student writing):\n"
+        f"{rubric_json}\n\n"
+        f"Student Essay to evaluate:\n"
+        f"\"\"\"\n{essay_text}\n\"\"\"\n\n"
+        f"Guidelines for your evaluation:\n"
+        f"1. Carefully analyze the student's essay.\n"
+        f"2. For each of the four criteria (task_response, coherence_cohesion, lexical_resource, grammatical_range), assign a band score.\n"
+        f"3. The band score MUST be a float number chosen STRICTLY from the enum: [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5]. Do NOT assign any other score.\n"
+        f"4. For each criterion, provide detailed 'feedback' (1-3 sentences) in Vietnamese explaining why this score was given, and 'suggestions' (1-3 items) in Vietnamese offering actionable advice for the student to improve.\n"
+        f"5. All text in 'feedback' and 'suggestions' must be in Vietnamese."
+    )
+
+    api_key = os.environ.get("GEMINI_API_KEY", "")
+    if not api_key:
+        return {"error": True, "message": "Không tìm thấy API Key cấu hình."}
+
+    client = genai.Client(api_key=api_key)
+    models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    last_err = None
+
+    import time
+    for model in models:
+        for attempt in range(3):
+            try:
+                response = client.models.generate_content(
+                    model=model,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_schema=EssayEvaluationResponse,
+                    )
+                )
+                if response.text:
+                    raw_data = json.loads(response.text)
+                    criteria_keys = ["task_response", "coherence_cohesion", "lexical_resource", "grammatical_range"]
+                    bands = []
+                    valid_bands = [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5]
+                    processed_criteria = {}
+
+                    for key in criteria_keys:
+                        crit = raw_data.get(key, {})
+                        raw_band = crit.get("band", 1.0)
+                        try:
+                            val = float(raw_band)
+                            closest_band = min(valid_bands, key=lambda x: abs(x - val))
+                        except Exception:
+                            closest_band = 1.0
+
+                        bands.append(closest_band)
+                        processed_criteria[key] = {
+                            "band": closest_band,
+                            "feedback": crit.get("feedback", "Không có nhận xét chi tiết."),
+                            "suggestions": crit.get("suggestions", [])
+                        }
+
+                    overall_band = ielts_round(sum(bands) / 4.0)
+
+                    return {
+                        "overall_band": overall_band,
+                        "criteria": processed_criteria,
+                        "essay_type": essay_type,
+                        "word_count": len(essay_text.split()),
+                        "error": False
+                    }
+            except Exception as e:
+                err_str = str(e)
+                last_err = e
+                if "503" in err_str or "UNAVAILABLE" in err_str:
+                    time.sleep(2 ** (attempt + 1))
+                    continue
+                elif "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    break
+                else:
+                    break
+
+    err_msg = "Hệ thống đang quá tải, vui lòng thử lại sau ít phút."
+    if last_err:
+        err_msg = f"Đã xảy ra lỗi kết nối ({type(last_err).__name__}). Vui lòng thử lại sau ít phút."
+    return {"error": True, "message": err_msg}
+
+
+# ---------------------------------------------------------------------------
 # Tool registry (cho ADK agent)
 # ---------------------------------------------------------------------------
 
@@ -906,6 +1086,7 @@ TOOLS = [
     guide_essay_section,
     suggest_sentence_structures,
     enrich_vocabulary,
+    evaluate_essay,
 ]
 
 TOOL_DESCRIPTIONS = {
@@ -919,7 +1100,7 @@ TOOL_DESCRIPTIONS = {
         "Dùng khi bắt đầu viết Introduction."
     ),
     "guide_essay_section": (
-        "Hướng dẫn viết từng phần cụ thể: introduction, body1, body2, conclusion. "
+        "Hướng quan viết từng phần cụ thể: introduction, body1, body2, conclusion. "
         "Cung cấp template, ví dụ, phrases hữu ích và checklist. "
         "Dùng khi user sắp viết một phần của bài."
     ),
@@ -930,6 +1111,11 @@ TOOL_DESCRIPTIONS = {
     "enrich_vocabulary": (
         "Phát hiện từ bị lặp và gợi ý synonyms/collocations học thuật. "
         "Dùng khi user dùng từ đơn điệu hoặc yêu cầu cải thiện từ vựng."
+    ),
+    "evaluate_essay": (
+        "Chấm điểm và đánh giá toàn diện bài viết IELTS Writing Task 2 hoàn chỉnh "
+        "dựa trên khung rubric rút gọn từ 1.0 đến 6.5. "
+        "Dùng khi bài viết đã hoàn tất."
     ),
 }
 
