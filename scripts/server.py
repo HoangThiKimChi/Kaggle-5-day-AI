@@ -112,6 +112,7 @@ class ChatRequest(BaseModel):
     session_id: str
     user_id: str = "react_user"
     level: str = "B1"
+    history: list[dict] = []
 
 class EvaluateRequest(BaseModel):
     essay_text: str
@@ -119,9 +120,41 @@ class EvaluateRequest(BaseModel):
 
 # Async runner logic
 async def _run_turn_structured_real(
-    session_id: str, user_id: str, message: str
+    session_id: str, user_id: str, message: str, history: list[dict] = []
 ) -> dict:
     await ensure_session(runner, user_id, session_id)
+    
+    # Sync frontend history to memory if empty (e.g., page reload or backend container restart)
+    session = await runner.session_service.get_session(
+        app_name="essay_writing_coach",
+        user_id=user_id,
+        session_id=session_id
+    )
+    if session and (not session.events) and history:
+        import uuid
+        import time
+        from google.adk.events.event import Event
+        
+        for h_msg in history:
+            role = h_msg.get("role", "user")
+            content_role = "user" if role == "user" else "model"
+            author = "user" if role == "user" else "model"
+            content_text = h_msg.get("content", "")
+            if not content_text:
+                continue
+                
+            event = Event(
+                id=str(uuid.uuid4()),
+                invocation_id=f"e-{uuid.uuid4()}",
+                author=author,
+                timestamp=time.time(),
+                content=genai_types.Content(
+                    role=content_role,
+                    parts=[genai_types.Part.from_text(text=content_text)]
+                )
+            )
+            session.events.append(event)
+            
     msg = genai_types.Content(
         role="user", parts=[genai_types.Part(text=message)]
     )
@@ -174,7 +207,7 @@ async def chat_endpoint(req: ChatRequest):
     prefixed_input = f"[Level: {req.level}] {req.message}"
     
     try:
-        result = await _run_turn_structured_real(req.session_id, req.user_id, prefixed_input)
+        result = await _run_turn_structured_real(req.session_id, req.user_id, prefixed_input, req.history)
         return result
     except Exception as exc:
         err_type = type(exc).__name__

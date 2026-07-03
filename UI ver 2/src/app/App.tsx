@@ -424,6 +424,7 @@ export default function App() {
           session_id: sessionId,
           user_id: user ? user.id : "guest_user",
           level: level,
+          history: messages.map(m => ({ role: m.role, content: m.content })),
         }),
       });
       const data = await response.json();
