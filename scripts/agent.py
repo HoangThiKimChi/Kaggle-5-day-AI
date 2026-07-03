@@ -120,7 +120,7 @@ chủ đề không liên quan đến IELTS Writing Task 2), hãy:
 
 root_agent = Agent(
     name="essay_writing_coach",
-    model="gemini-2.5-flash",
+    model="gemini-2.5-flash-lite",
     instruction=SYSTEM_PROMPT,
     tools=TOOLS,
     description=(

@@ -185,7 +185,7 @@ def _call_gemini(user_prompt: str, system_instruction: str = "") -> str:
     full_prompt = f"{system_instruction}\n\n{user_prompt}" if system_instruction else user_prompt
     try:
         response = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-flash-lite",
             contents=full_prompt,
             config=types.GenerateContentConfig(
                 response_mime_type="application/json",
@@ -1140,7 +1140,7 @@ def evaluate_essay(essay_text: str, essay_type: str) -> dict:
         return {"error": True, "message": "Không tìm thấy API Key cấu hình."}
 
     client = genai.Client(api_key=api_key)
-    models = ["gemini-2.5-flash", "gemini-2.5-flash-lite"]
+    models = ["gemini-2.5-flash-lite", "gemini-2.5-flash"]
     last_err = None
 
     import time
