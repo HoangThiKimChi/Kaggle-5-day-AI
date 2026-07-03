@@ -52,6 +52,10 @@ Free tier, không có billing. Để tránh lặp lại việc tốn quota vào 
   "verify thật") — vì mỗi request thật là tài nguyên giới hạn trong ngày.
 - Trước khi dùng request thật, nên tính toán trước cần bao nhiêu request,
   báo cho Chi biết con số đó để quyết định.
+- **KHÔNG ping thử trước khi chạy verify** — mỗi lần ping tốn 1 request.
+- **KHÔNG đổi model qua lại giữa các lần thử** — giữ nguyên model đang dùng.
+- **Nếu 503 (server quá tải)** → đợi 5-10 phút rồi thử lại đúng file đó, KHÔNG chuyển sang model khác (vì model khác có thể đã hết quota riêng).
+- **Mỗi request thật phải có mục đích rõ ràng**, tránh lãng phí quota.
 
 ---
 
