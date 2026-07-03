@@ -32,15 +32,13 @@ bắt đầu từng phần essay. Khác Grammarly (chỉ sửa lỗi) và ChatGP
 - **Không login/auth, không multi-user.** Single-user demo cho capstone.
 - **Agent không tự viết hộ essay** — chỉ hướng dẫn. User tự gõ vào UI.
   Đây là định vị cốt lõi: coach, không phải ghostwriter.
+- **Cá nhân hóa hội thoại & Chẩn đoán trình độ:** Bắt buộc chẩn đoán điểm mạnh/yếu của học viên trong các câu viết nháp đầu tiên (Student Profiling), theo dõi sự tiến bộ giữa các lượt chat (Progress Tracking) để động viên hoặc sửa lỗi lặp, và gợi ý chuyển đổi trình độ linh hoạt (B1 xuống A2 nếu viết quá yếu; A2 lên B1 nếu viết rất vững).
 
 ---
 
 ## Model đang dùng
 
-**`gemini-2.5-flash-lite`** (đổi 2 lần: `2.0-flash` bị Google khai tử →
-`2.5-flash` quota thấp/hay bị 429 → `2.5-flash-lite` hiện tại, quota cao
-hơn, đủ dùng cho free tier). Nếu cần đổi model lần nữa, LUÔN xác nhận tên
-chính xác qua `client.models.list()` trước, không đoán.
+**`gemini-2.5-flash`** (đã nâng cấp lên gói PRO có hạn mức cao hơn từ ngày 03/07/2026 sau khi nạp tiền prepaid credit). Nếu cần đổi model lần nữa, LUÔN xác nhận tên chính xác qua `client.models.list()` trước, không đoán.
 
 ## Quy ước quota — MOCK_GEMINI
 
