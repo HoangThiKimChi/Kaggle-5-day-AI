@@ -110,3 +110,8 @@ dmypy.json
 Tài liệu/
 Tài liệu/
 Capstone-Kaggle/
+node_modules/
+dist/
+.env.local
+.env.*.local
+
