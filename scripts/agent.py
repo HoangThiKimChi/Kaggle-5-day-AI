@@ -31,7 +31,7 @@ except ImportError:
 from google.adk.agents import Agent
 from google.adk.runners import InMemoryRunner
 from google.genai import types as genai_types
-from google.genai.types import GenerateContentConfig, ThinkingConfig
+# GenerateContentConfig/ThinkingConfig removed — not supported by gemini-2.5-flash-lite
 
 from tools import TOOLS  # the 5 implemented tool functions
 
@@ -127,12 +127,10 @@ root_agent = Agent(
         "IELTS Writing Task 2 coach for Vietnamese learners at A2-B1 level. "
         "Guides users through classify → paraphrase → introduction → body → conclusion."
     ),
-    # thinking_budget=0: safeguard against thinking-only responses that cause
-    # ADK to raise "model output must contain either output text or tool calls".
-    generate_content_config=GenerateContentConfig(
-        thinking_config=ThinkingConfig(thinking_budget=0),
-    ),
+    # Note: ThinkingConfig removed — gemini-2.5-flash-lite does not support
+    # thinking_budget and returns 400 InvalidArgument if passed.
 )
+
 
 
 # ---------------------------------------------------------------------------

@@ -485,13 +485,24 @@ def _send_message(user_input: str) -> None:
             prefixed_input,
         )
         _apply_tool_calls(result["tool_calls"])
-        st.session_state["messages"].append({"role": "agent", "content": result["text"]})
+        agent_text = result["text"]
+        # Nếu agent không trả text lẫn tool_calls → thông báo thay vì im lặng
+        if not agent_text and not result["tool_calls"]:
+            agent_text = "_(Agent không trả lời — vui lòng thử lại hoặc diễn đạt lại câu hỏi.)_"
+        st.session_state["messages"].append({"role": "agent", "content": agent_text})
     except Exception as exc:
+        err_str  = str(exc)
         err_type = type(exc).__name__
-        if "429" in str(exc) or "ResourceExhausted" in err_type:
+        # Log chi tiết ra console để debug trên Streamlit Cloud
+        print(f"[ERROR] _send_message — {err_type}: {err_str}", flush=True)
+        if "429" in err_str or "ResourceExhausted" in err_type:
             friendly = "⚠️ Đã vượt giới hạn quota API. Vui lòng thử lại sau vài phút."
-        elif "NotFound" in err_type or "404" in str(exc):
+        elif "503" in err_str or "ServiceUnavailable" in err_type or "overloaded" in err_str.lower():
+            friendly = "⚠️ Server AI đang quá tải (503). Vui lòng đợi 1-2 phút rồi thử lại."
+        elif "NotFound" in err_type or "404" in err_str:
             friendly = "⚠️ Lỗi kết nối tới mô hình AI (404). Vui lòng kiểm tra lại API key."
+        elif "InvalidArgument" in err_type or "400" in err_str:
+            friendly = "⚠️ Yêu cầu không hợp lệ (400). Vui lòng thử lại với câu hỏi ngắn hơn."
         else:
             friendly = f"⚠️ Đã xảy ra lỗi kỹ thuật ({err_type}). Vui lòng thử lại."
         st.session_state["messages"].append({"role": "error", "content": friendly})
