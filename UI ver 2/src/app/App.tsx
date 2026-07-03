@@ -359,6 +359,39 @@ export default function App() {
     // Save user message immediately to Supabase
     saveSessionToSupabase({ messages: nextMsgs });
 
+    if (textVal === "Không, hãy hướng dẫn tôi bước tiếp theo.") {
+      // Find the user's last actual sentence draft
+      let lastUserSentence = "";
+      for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].role === "user") {
+          const text = messages[i].content.trim();
+          // Exclude control text
+          if (
+            !text.includes("Tôi muốn cải thiện") && 
+            !text.includes("Không, hãy hướng dẫn") && 
+            !text.includes("Không, chuyển sang bước")
+          ) {
+            lastUserSentence = text;
+            break;
+          }
+        }
+      }
+      
+      if (lastUserSentence) {
+        setDraft((prev) => {
+          const trimmedPrev = prev.trim();
+          // Avoid duplicate appending
+          if (trimmedPrev.includes(lastUserSentence)) {
+            return prev;
+          }
+          const separator = trimmedPrev ? " " : "";
+          const newDraft = trimmedPrev + separator + lastUserSentence;
+          saveSessionToSupabase({ draft: newDraft });
+          return newDraft;
+        });
+      }
+    }
+
     try {
       const apiUrl = import.meta.env.VITE_API_URL || "http://localhost:8000";
       const response = await fetch(`${apiUrl}/api/chat`, {
@@ -713,22 +746,22 @@ export default function App() {
                 >
                   Lịch sử bài viết
                 </p>
-                <div className="flex flex-col gap-1.5 max-h-[160px] overflow-y-auto pr-1">
+                <div className="flex flex-col gap-1.5 max-h-[220px] overflow-y-auto pr-1 py-1">
                   {userSessions.map((session) => (
                     <button
                       key={session.id}
                       onClick={() => selectSession(session.id)}
-                      className="text-left w-full text-xs p-2 rounded-lg transition-colors border truncate flex flex-col gap-0.5 cursor-pointer"
+                      className="text-left w-full text-xs p-2.5 rounded-lg transition-colors border flex flex-col gap-1 cursor-pointer"
                       style={{ 
                         background: activeSessionDbId === session.id ? "var(--secondary)" : "transparent",
                         borderColor: activeSessionDbId === session.id ? "var(--border)" : "transparent",
                         color: "var(--foreground)" 
                       }}
                     >
-                      <span className="font-medium truncate">
+                      <span className="font-medium truncate w-full">
                         {session.essay_prompt || "Bài viết nháp mới"}
                       </span>
-                      <span className="text-[10px]" style={{ color: "var(--muted-foreground)" }}>
+                      <span className="text-[10px] w-full" style={{ color: "var(--muted-foreground)" }}>
                         {new Date(session.updated_at).toLocaleDateString("vi-VN")} · {session.level}
                       </span>
                     </button>
@@ -977,7 +1010,7 @@ export default function App() {
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
             {/* Quick Actions Option Buttons */}
-            {!isTyping && messages.length > 1 && messages[messages.length - 1].role === "assistant" && (
+            {!isTyping && messages.length > 1 && messages[messages.length - 1].role === "assistant" && essayType !== null && (
               <div className="flex flex-wrap gap-2 animate-fade-in">
                 <button
                   onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
