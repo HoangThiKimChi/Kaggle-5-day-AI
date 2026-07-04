@@ -66,6 +66,8 @@ class CriterionEvaluation(BaseModel):
     suggestions: List[str] = Field(..., description="1-3 gợi ý cụ thể để cải thiện nâng band, bằng tiếng Việt")
 
 class EssayEvaluationResponse(BaseModel):
+    overall_strengths: List[str] = Field(default_factory=list, description="2-3 điểm mạnh nổi bật toàn bài, trích dẫn cụ thể từ bài")
+    overall_weaknesses: List[str] = Field(default_factory=list, description="2-3 điểm yếu cần khắc phục, trích dẫn cụ thể từ bài + hướng sửa")
     task_response: CriterionEvaluation
     coherence_cohesion: CriterionEvaluation
     lexical_resource: CriterionEvaluation
@@ -739,7 +741,9 @@ class IELTSEssayEvaluator:
             f"3. Specifically for 'grammatical_range' (Ngữ pháp), check if the student has attempted or correctly used the patterns defined in the grammar reference (such as 'Despite/In spite of', concession, active/passive voice, etc.). In the feedback and suggestions for 'grammatical_range', mention which specific target structures they used correctly and which ones they should attempt to use to improve their score.\n"
             f"4. The band score MUST be a float number chosen STRICTLY from the enum: [1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5]. Do NOT assign any other score.\n"
             f"5. For each criterion, provide detailed 'feedback' (1-3 sentences) in Vietnamese explaining why this score was given, and 'suggestions' (1-3 items) in Vietnamese offering actionable advice for the student to improve.\n"
-            f"6. All text in 'feedback' and 'suggestions' must be in Vietnamese."
+            f"6. Populate `overall_strengths` with 2-3 bullet points in Vietnamese highlighting the essay's strengths, citing SPECIFIC examples/phrases from the student's text.\n"
+            f"7. Populate `overall_weaknesses` with 2-3 bullet points in Vietnamese highlighting areas for improvement, citing SPECIFIC examples/phrases from the text AND how to fix them (do not rewrite the whole sentence for them).\n"
+            f"8. All text in 'feedback', 'suggestions', 'overall_strengths', and 'overall_weaknesses' must be in Vietnamese."
         )
 
         api_key = os.environ.get("GEMINI_API_KEY", "")
@@ -790,6 +794,8 @@ class IELTSEssayEvaluator:
 
                         res_dict = {
                             "overall_band": overall_band,
+                            "overall_strengths": raw_data.get("overall_strengths", []),
+                            "overall_weaknesses": raw_data.get("overall_weaknesses", []),
                             "criteria": processed_criteria,
                             "essay_type": essay_type,
                             "word_count": word_count,
@@ -822,6 +828,14 @@ class IELTSEssayEvaluator:
         words = len(essay_text.split())
         mock_result = {
             "overall_band": 5.0,
+            "overall_strengths": [
+                "Cấu trúc đoạn văn rõ ràng, có đầy đủ mở bài, thân bài và kết bài.",
+                "Đã cố gắng sử dụng từ nối như 'Furthermore' để liên kết các ý."
+            ],
+            "overall_weaknesses": [
+                "Lỗi chia động từ số ít/nhiều còn khá phổ biến (VD: 'people is' -> sửa thành 'people are').",
+                "Ý tưởng chưa được phát triển đủ sâu, thiếu ví dụ thực tế (VD: luận điểm về sức khỏe chưa có dẫn chứng)."
+            ],
             "criteria": {
                 "task_response": {
                     "band": 5.0,
