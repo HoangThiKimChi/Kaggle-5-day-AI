@@ -192,13 +192,15 @@ class GeminiServiceClient:
         full_prompt = f"{system_instruction}\n\n{user_prompt}" if system_instruction else user_prompt
         
         import time
-        for attempt in range(4):
+        backoffs = [2, 5]
+        for attempt in range(3):
             try:
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
                     contents=full_prompt,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
+                        max_output_tokens=2048,
                     ),
                 )
                 # Fast path
@@ -218,13 +220,14 @@ class GeminiServiceClient:
                             return "".join(texts)
                 return ""
             except Exception as exc:
-                err_str = str(exc)
-                # Check for rate limit / ResourceExhausted (429)
-                if "429" in err_str or "resourceexhausted" in err_str.lower() or "limit" in err_str.lower():
-                    if attempt < 3:
-                        time.sleep(2 * (attempt + 1))  # 2s, 4s, 6s backoff
+                err_str = str(exc).lower()
+                # Check for rate limit (429), server error (503), or timeout
+                if "429" in err_str or "resourceexhausted" in err_str or "limit" in err_str or "503" in err_str or "timeout" in err_str:
+                    if attempt < 2:
+                        time.sleep(backoffs[attempt])
                         continue
-                return json.dumps({"_api_error": type(exc).__name__, "_api_message": err_str[:300]})
+                # If all retries fail or it's another error, return user-friendly error
+                return json.dumps({"error": "Hệ thống đang quá tải hoặc phản hồi chậm (503/Timeout). Vui lòng thử lại sau giây lát!"})
 
     @staticmethod
     def safe_parse_json(raw: str):
