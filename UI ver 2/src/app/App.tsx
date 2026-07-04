@@ -1080,64 +1080,7 @@ export default function App() {
                 >
                   <div className="w-full">{formatMessage(msg.content)}</div>
                   
-                  {/* Option buttons inside the agent's bubble (only for the last assistant message) */}
-                  {!isTyping && msg.role === "assistant" && idx === messages.length - 1 && essayType !== null && (() => {
-                    const isCorrectSentence = 
-                      msg.content.includes("hoàn toàn chính xác") ||
-                      msg.content.includes("không có lỗi sai nào") ||
-                      msg.content.includes("không mắc bất kỳ lỗi") ||
-                      msg.content.includes("không mắc lỗi nào") ||
-                      msg.content.includes("Chúc mừng bạn!");
-
-                    const isIncorrectSentence = 
-                      msg.content.includes("~~") ||
-                      msg.content.includes("lỗi ngữ pháp") ||
-                      msg.content.includes("lỗi chính tả") ||
-                      msg.content.includes("lỗi từ vựng") ||
-                      msg.content.includes("sửa lại") ||
-                      msg.content.includes("cải thiện") ||
-                      msg.content.includes("nâng band");
-
-                    if (isCorrectSentence) {
-                      return (
-                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/80 w-full">
-                          <button
-                            onClick={() => handleSend("Giải thích chi tiết câu này giúp mình.")}
-                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
-                          >
-                            📖 Giải thích chi tiết câu này
-                          </button>
-                          <button
-                            onClick={() => handleSend("Hãy giúp mình cải thiện câu này để đạt band cao hơn.")}
-                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
-                          >
-                            🚀 Cải thiện câu này tốt hơn
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    if (isIncorrectSentence) {
-                      return (
-                        <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-border/80 w-full">
-                          <button
-                            onClick={() => handleSend("Tôi muốn cải thiện câu này để đạt band cao hơn.")}
-                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
-                          >
-                            🚀 Có, giúp tôi nâng band câu này
-                          </button>
-                          <button
-                            onClick={() => handleSend("Không, hãy hướng dẫn tôi bước tiếp theo.")}
-                            className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-secondary border-border text-muted-foreground"
-                          >
-                            ➡️ Không, chuyển sang bước tiếp theo
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return null;
-                  })()}
+                  {/* Option buttons inside the agent's bubble have been moved to the input area as quick-replies */}
                 </div>
               </div>
             ))}
@@ -1176,9 +1119,55 @@ export default function App() {
 
           {/* Input */}
           <div
-            className="shrink-0 p-4 border-t"
+            className="shrink-0 p-4 border-t flex flex-col gap-3"
             style={{ borderColor: "var(--border)", background: "var(--card)" }}
           >
+            {/* Quick Replies / Suggestion Chips */}
+            {!isTyping && messages.length > 0 && messages[messages.length - 1].role === "assistant" && (() => {
+              const lastMsg = messages[messages.length - 1].content;
+              const isGradingTurn = lastMsg.includes("ước lượng") || lastMsg.includes("~");
+              const isServerError = lastMsg.includes("Hệ thống đang quá tải");
+
+              if (!isGradingTurn && !isServerError) return null;
+
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {isGradingTurn && (
+                    <>
+                      <button
+                        onClick={() => handleSend("Giải thích câu này.")}
+                        className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400"
+                      >
+                        📖 Giải thích câu này
+                      </button>
+                      <button
+                        onClick={() => handleSend("Cải thiện câu này.")}
+                        className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400"
+                      >
+                        🚀 Cải thiện câu này
+                      </button>
+                      <button
+                        onClick={() => handleSend("Viết câu tiếp theo.")}
+                        className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-secondary border-border text-muted-foreground"
+                      >
+                        ➡️ Viết câu tiếp theo
+                      </button>
+                    </>
+                  )}
+                  {isServerError && (
+                    <button
+                      onClick={() => {
+                        const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+                        if (lastUserMsg) handleSend(lastUserMsg.content);
+                      }}
+                      className="text-xs px-3 py-1.5 rounded-lg border font-medium cursor-pointer transition-all hover:scale-[1.02] flex items-center gap-1.5 bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400"
+                    >
+                      🔄 Thử lại
+                    </button>
+                  )}
+                </div>
+              );
+            })()}
             <div
               className="flex items-end gap-3 rounded-xl p-3"
               style={{ background: "var(--input-background)", border: "1px solid var(--border)" }}
