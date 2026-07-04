@@ -935,71 +935,73 @@ export default function App() {
               </div>
             </div>
 
-            {/* Progress */}
-            <div>
-              <div className="flex items-center justify-between mb-2.5">
-                <p
-                  className="text-xs font-semibold uppercase tracking-widest"
-                  style={{ color: "var(--muted-foreground)" }}
-                >
-                  Tiến độ
-                </p>
-                <span className="text-xs font-medium" style={{ color: "var(--primary)" }}>
-                  {completedSections.size}/{SECTIONS.length}
-                </span>
-              </div>
+            {/* Progress (Hidden as per request) */}
+            {false && (
+              <div>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-widest"
+                    style={{ color: "var(--muted-foreground)" }}
+                  >
+                    Tiến độ
+                  </p>
+                  <span className="text-xs font-medium" style={{ color: "var(--primary)" }}>
+                    {completedSections.size}/{SECTIONS.length}
+                  </span>
+                </div>
 
-              {/* Progress bar */}
-              <div
-                className="h-1 rounded-full mb-3 overflow-hidden"
-                style={{ background: "var(--muted)" }}
-              >
+                {/* Progress bar */}
                 <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{ width: `${progressPct}%`, background: "var(--primary)" }}
-                />
-              </div>
+                  className="h-1 rounded-full mb-3 overflow-hidden"
+                  style={{ background: "var(--muted)" }}
+                >
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${progressPct}%`, background: "var(--primary)" }}
+                  />
+                </div>
 
-              <div className="flex flex-col gap-1.5">
-                {SECTIONS.map((s) => {
-                  const done = completedSections.has(s.id);
-                  const active = activeSection === s.id;
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => {
-                        setActiveSection(s.id);
-                        setActiveTab("guidance");
-                      }}
-                      className="flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md text-left transition-all duration-150"
-                      style={{
-                        background: active ? "var(--sidebar-accent)" : "transparent",
-                        color: done
-                          ? "var(--primary)"
-                          : active
-                          ? "var(--foreground)"
-                          : "var(--muted-foreground)",
-                      }}
-                    >
-                      <span
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleSection(s.id);
+                <div className="flex flex-col gap-1.5">
+                  {SECTIONS.map((s) => {
+                    const done = completedSections.has(s.id);
+                    const active = activeSection === s.id;
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => {
+                          setActiveSection(s.id);
+                          setActiveTab("guidance");
                         }}
-                        className="cursor-pointer hover:scale-110 transition-transform duration-100 shrink-0"
+                        className="flex items-center gap-2.5 text-xs py-1.5 px-2 rounded-md text-left transition-all duration-150"
+                        style={{
+                          background: active ? "var(--sidebar-accent)" : "transparent",
+                          color: done
+                            ? "var(--primary)"
+                            : active
+                            ? "var(--foreground)"
+                            : "var(--muted-foreground)",
+                        }}
                       >
-                        {done ? (
-                          <CheckSquare size={13} style={{ color: "var(--primary)" }} />
-                        ) : (
-                          <Square size={13} />
-                        )}
-                      </span>
-                      <span className={done ? "line-through" : ""}>{s.label}</span>
-                    </button>
-                  );
-                })}
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleSection(s.id);
+                          }}
+                          className="cursor-pointer hover:scale-110 transition-transform duration-100 shrink-0"
+                        >
+                          {done ? (
+                            <CheckSquare size={13} style={{ color: "var(--primary)" }} />
+                          ) : (
+                            <Square size={13} />
+                          )}
+                        </span>
+                        <span className={done ? "line-through" : ""}>{s.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Reset button */}
