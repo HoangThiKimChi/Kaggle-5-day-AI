@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import Markdown from "react-markdown";
 import { supabase } from "../utils/supabase";
 import {
   BookOpen,
@@ -19,6 +20,9 @@ import {
   AlertCircle,
   Trash2,
 } from "lucide-react";
+
+// Hằng số bật/tắt toàn bộ panel kết quả bên phải
+const SHOW_RESULT_PANEL = false;
 
 type Level = "A2" | "B1";
 type EssayType = "opinion" | "discussion" | "adv_dis" | "problem_solution" | "two_part_question";
@@ -92,6 +96,7 @@ export default function App() {
 
   const [userSessions, setUserSessions] = useState<any[]>([]);
   const [activeSessionDbId, setActiveSessionDbId] = useState<string | null>(null);
+  const activeSessionDbIdRef = useRef<string | null>(null);
   const [sessionId, setSessionId] = useState(() => Math.random().toString(36).substring(7));
   const [essayType, setEssayType] = useState<EssayType | null>(null);
   const [level, setLevel] = useState<Level>("B1");
@@ -241,10 +246,11 @@ export default function App() {
     };
 
     try {
+      const dbIdToUse = activeSessionDbIdRef.current || activeSessionDbId;
       const { data, error } = await supabase
         .from("essay_sessions")
         .upsert(
-          { ...payload, ...(activeSessionDbId ? { id: activeSessionDbId } : {}) },
+          { ...payload, ...(dbIdToUse ? { id: dbIdToUse } : {}) },
           { onConflict: "id" }
         )
         .select();
@@ -252,6 +258,7 @@ export default function App() {
       if (error) throw error;
       if (data && data[0]) {
         setActiveSessionDbId(data[0].id);
+        activeSessionDbIdRef.current = data[0].id;
         loadUserSessions(user.id);
       }
     } catch (err) {
@@ -270,6 +277,7 @@ export default function App() {
       if (error) throw error;
       if (data) {
         setActiveSessionDbId(data.id);
+        activeSessionDbIdRef.current = data.id;
         setSessionId(data.session_id);
         if (data.essay_type) setEssayType(data.essay_type as EssayType);
         if (data.level) setLevel(data.level as Level);
@@ -467,7 +475,31 @@ export default function App() {
         }),
       });
       const data = await response.json();
+      // 1. Parse ESSAY_APPEND marker
+      let updatedDraft = draft;
+      const markerRegex = /<!--ESSAY_APPEND\s+({.*?})\s*-->/;
+      const match = data.text.match(markerRegex);
+      let parsedSection = activeSection;
       
+      if (match) {
+        try {
+          const markerData = JSON.parse(match[1]);
+          parsedSection = markerData.section || activeSection;
+          // Loại bỏ marker khỏi text hiển thị cho user
+          data.text = data.text.replace(markerRegex, "").trim();
+          
+          if (updatedDraft.trim().length === 0) {
+            updatedDraft = markerData.sentence;
+          } else {
+            // Nếu draft đã có text, append thêm. (Tạm thời append với khoảng trắng, user có thể tự chia đoạn)
+            updatedDraft = updatedDraft.trim() + " " + markerData.sentence;
+          }
+          setDraft(updatedDraft);
+        } catch (e) {
+          console.error("Lỗi parse marker ESSAY_APPEND", e);
+        }
+      }
+
       const assistantMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -475,8 +507,7 @@ export default function App() {
         timestamp: new Date(),
       };
       const finalMsgs = [...nextMsgs, assistantMsg];
-      setMessages(finalMsgs);
-      
+      setMessages(finalMsgs);      
       let updatedEssayType = essayType;
       let updatedActiveSection = activeSection;
 
@@ -597,6 +628,7 @@ export default function App() {
     const newSessionId = Math.random().toString(36).substring(7);
     setSessionId(newSessionId);
     setActiveSessionDbId(null);
+    activeSessionDbIdRef.current = null;
 
     setMessages([WELCOME_MESSAGE]);
     setEssayType(null);
@@ -1185,6 +1217,7 @@ export default function App() {
         </main>
 
         {/* Results panel */}
+        {SHOW_RESULT_PANEL && (
         <section className="w-80 shrink-0 flex flex-col" style={{ background: "var(--card)" }}>
           {/* Results header */}
           <div
@@ -1471,9 +1504,23 @@ export default function App() {
 
             {activeTab === "draft" && (
               <div className="p-5 flex flex-col gap-3 h-full">
-                <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
-                  Viết bài hoàn chỉnh của bạn ở đây để lưu và chấm điểm.
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>
+                    Viết bài hoàn chỉnh của bạn ở đây để lưu và chấm điểm.
+                  </p>
+                  <div className="text-xs font-medium px-3 py-1.5 rounded-lg flex gap-2 items-center" 
+                       style={{ 
+                         background: draft.split(/\s+/).filter(Boolean).length >= 250 ? "var(--green-50, #f0fdf4)" : "var(--orange-50, #fff7ed)",
+                         color: draft.split(/\s+/).filter(Boolean).length >= 250 ? "var(--green-700, #15803d)" : "var(--orange-700, #c2410c)",
+                         border: "1px solid",
+                         borderColor: draft.split(/\s+/).filter(Boolean).length >= 250 ? "var(--green-200, #bbf7d0)" : "var(--orange-200, #fed7aa)"
+                       }}>
+                    <span>Số từ: {draft.split(/\s+/).filter(Boolean).length}</span>
+                    {draft.split(/\s+/).filter(Boolean).length > 0 && draft.split(/\s+/).filter(Boolean).length < 250 && (
+                      <span title="Nên viết tối thiểu 250 từ">⚠️</span>
+                    )}
+                  </div>
+                </div>
                 <textarea
                   value={draft}
                   onChange={(e) => setDraft(e.target.value)}
@@ -1485,17 +1532,10 @@ export default function App() {
                     border: "1px solid var(--border)",
                     fontFamily: "'Inter', sans-serif",
                     minHeight: "280px",
+                    lineHeight: "1.8", // Giúp hiển thị khoảng cách rõ ràng hơn
+                    whiteSpace: "pre-wrap"
                   }}
                 />
-                {draft && (
-                  <div
-                    className="flex items-center justify-between text-xs py-2 px-3 rounded-lg"
-                    style={{ background: "var(--muted)", color: "var(--muted-foreground)" }}
-                  >
-                    <span>{draft.split(/\s+/).filter(Boolean).length} từ</span>
-                    <span>{draft.length} ký tự</span>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1557,6 +1597,40 @@ export default function App() {
                             Dạng bài: {evaluation.essay_type} | Từ: {evaluation.word_count}
                           </p>
                         </div>
+                        {evaluation.word_count < 250 && (
+                          <div className="p-3 mt-2 rounded-xl border border-yellow-200 bg-yellow-50/50 flex gap-3 text-yellow-800">
+                            <span className="text-lg">⚠️</span>
+                            <div className="flex-1 text-[11px] leading-relaxed">
+                              <strong>Cảnh báo độ dài:</strong> Bài viết của bạn hiện có <strong>{evaluation.word_count} từ</strong>, chưa đạt mức tối thiểu 250 từ theo quy định của IELTS Task 2. Điểm số có thể bị trừ nặng trong thực tế.
+                            </div>
+                          </div>
+                        )}
+
+                        {evaluation.overall_strengths && evaluation.overall_strengths.length > 0 && (
+                          <div className="p-3 rounded-xl border border-green-200 bg-green-50/50">
+                            <h4 className="text-xs font-semibold text-green-800 flex items-center gap-1.5 mb-2">
+                              ✅ Điểm mạnh nổi bật
+                            </h4>
+                            <ul className="list-disc pl-4 space-y-1 text-[11px] text-green-700 leading-relaxed">
+                              {evaluation.overall_strengths.map((str: string, idx: number) => (
+                                <li key={idx}>{str}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+
+                        {evaluation.overall_weaknesses && evaluation.overall_weaknesses.length > 0 && (
+                          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50/50">
+                            <h4 className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-2">
+                              🔧 Điểm cần cải thiện
+                            </h4>
+                            <ul className="list-disc pl-4 space-y-1 text-[11px] text-amber-700 leading-relaxed">
+                              {evaluation.overall_weaknesses.map((weak: string, idx: number) => (
+                                <li key={idx}>{weak}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
 
                         {/* Criteria list */}
                         {[
@@ -1612,6 +1686,7 @@ export default function App() {
             )}
           </div>
         </section>
+        )}
       </div>
 
       {/* Auth Modal Overlay */}
