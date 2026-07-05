@@ -99,3 +99,6 @@ Capstone/
 - ✅ Giai đoạn 2 (`app.py`, `test_level_flows.py` và `verify_real_level_flows.py`) — hoàn thành, phân luồng B1 và A2 hoạt động trơn tru.
 - ✅ Giai đoạn 3 (IELTS Essay Evaluator) — hoàn thành, chấm điểm từ 1.0 đến 6.5 chuẩn IELTS, tích hợp cache, quota fallback, và cập nhật giao diện 3 tab trên Streamlit Cloud.
 - ⏳ Chưa làm: quay video demo, điền các link demo/video vào Writeup và submit bài viết chính thức lên Kaggle.
+
+Không bao giờ dùng git push -f lên bất kỳ remote nào, kể cả khi push thường bị reject — dừng và báo lại.
+
