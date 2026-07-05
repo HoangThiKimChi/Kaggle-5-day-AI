@@ -263,14 +263,16 @@ A student begins by pasting an IELTS Writing Task 2 prompt in the chat. The inte
 
 *(We will embed screenshots of the 3-zone layout interface showing active progress indicators, real-time guidance instructions, and final consolidated essay outputs.)*
 
-### Live demo
+### Live Demo & Code Repository
 
-<!-- TODO: Thêm link Streamlit Community Cloud hoặc link GitHub repo
-public sau khi deploy -->
+**[Play the Live Demo on Hugging Face Spaces](https://huggingface.co/spaces/htkchi2212/ielts-writing-coach)**  
+*(Lưu ý: Hệ thống được xây dựng trên Free Tier. Xin vui lòng đợi 1-2 phút nếu server đang khởi động).*
+
+**[GitHub Code Repository](https://github.com/HoangThiKimChi/Kaggle-5-day-AI)**  
 
 ### Video
 
-<!-- TODO: Thêm link YouTube sau khi quay video demo ≤5 phút -->
+**[Xem Video Demo trên YouTube (3-5 phút)](https://youtu.be/lT1Z8Zg0yH4)**
 
 ---
 
@@ -295,13 +297,13 @@ public sau khi deploy -->
 
 ## Attachments Checklist
 
-- [ ] Cover image (screenshot of app UI, 3-zone layout)
-- [ ] 2-3 additional screenshots in Media Gallery
-- [ ] Video demo ≤5 phút, uploaded to YouTube
-- [ ] Public Project Link (Streamlit Community Cloud URL hoặc GitHub
-      repo public với README setup instructions)
-- [ ] Track selected: "Agents for Good"
-- [ ] Word count ≤2,500
+- [x] Cover image (screenshot of app UI, 3-zone layout)
+- [x] 2-3 additional screenshots in Media Gallery
+- [x] Video demo ≤5 phút, uploaded to YouTube
+- [x] Public Project Link (Hugging Face Spaces URL)
+- [x] Public Code Repository Link (GitHub URL)
+- [x] Track selected: "Agents for Good"
+- [x] Word count ≤2,500 (Verified: 2,083 words)
 
 ---
 
