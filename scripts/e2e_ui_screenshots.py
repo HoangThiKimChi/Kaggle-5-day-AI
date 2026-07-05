@@ -8,7 +8,7 @@ from playwright.async_api import async_playwright
 async def main():
     print("Starting FastAPI Backend...")
     env = os.environ.copy()
-    env["MOCK_GEMINI"] = "0"
+    env["MOCK_GEMINI"] = "1"
     env["PORT"] = "8000"
     
     # Check if API KEY is set
