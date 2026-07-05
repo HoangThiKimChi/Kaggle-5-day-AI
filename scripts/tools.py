@@ -200,7 +200,7 @@ class GeminiServiceClient:
                     contents=full_prompt,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
-                        max_output_tokens=2048,
+                        max_output_tokens=8192,
                     ),
                 )
                 # Fast path

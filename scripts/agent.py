@@ -257,7 +257,7 @@ root_agent = Agent(
         "Guides users through classify → paraphrase → introduction → body → conclusion."
     ),
     generate_content_config=genai_types.GenerateContentConfig(
-        max_output_tokens=4096
+        max_output_tokens=8192
     ),
     # Note: ThinkingConfig removed — gemini-2.5-flash-lite does not support
     # thinking_budget and returns 400 InvalidArgument if passed.
